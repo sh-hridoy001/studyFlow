@@ -1,6 +1,6 @@
 {
-  "name": "FocusTrack - Study Tracker & Pomodoro",
-  "description": "Clean, modern study tracker with Google Sign-In, Firebase Firestore cloud sync under user accounts, daily routines, 3-folder system, stopwatch, and past study history.",
+  "name": "FocusTrack - Study Tracker & Daily Planner",
+  "description": "Clean, modern study tracker with Google Sign-In, Firebase Firestore cloud sync, dynamic custom folders & subjects, 5-time daily Salah prayer tracker, stopwatch, and study history.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

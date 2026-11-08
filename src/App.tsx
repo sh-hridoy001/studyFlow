@@ -7,21 +7,23 @@ import { DailyOverviewHero } from './components/DailyOverviewHero';
 import { FolderSummaryCards } from './components/FolderSummaryCards';
 import { TasksList } from './components/TasksList';
 import { StudyHistory } from './components/StudyHistory';
+import { SalahTracker } from './components/SalahTracker';
 import { ActiveStopwatchBar } from './components/ActiveStopwatchBar';
 import { NewTaskModal } from './components/NewTaskModal';
 import { StartNewDayModal } from './components/StartNewDayModal';
 import { LogPastStudyModal } from './components/LogPastStudyModal';
 import { SyncCalendarModal } from './components/SyncCalendarModal';
 import { CalendarSettingsModal } from './components/CalendarSettingsModal';
-import { DailyTask, PrimaryFolderId } from './types';
-import { Cloud, Calendar, Download, Loader2, Timer } from 'lucide-react';
+import { ResetAllDataModal } from './components/ResetAllDataModal';
+import { DailyTask } from './types';
+import { Cloud, Calendar, Download, Loader2, Timer, Moon, CheckSquare } from 'lucide-react';
 import { downloadSingleFileApp } from './utils/singleFileGenerator';
 
 function AppContent() {
   const { activeTab, setActiveTab, isDataLoading, syncStatus } = useStudy();
 
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
-  const [defaultFolder, setDefaultFolder] = useState<PrimaryFolderId | undefined>();
+  const [defaultFolder, setDefaultFolder] = useState<string | undefined>();
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [isResetDayOpen, setIsResetDayOpen] = useState(false);
   const [isLogPastOpen, setIsLogPastOpen] = useState(false);
@@ -29,8 +31,9 @@ function AppContent() {
   const [isSyncCalendarOpen, setIsSyncCalendarOpen] = useState(false);
   const [syncCalendarTargetDate, setSyncCalendarTargetDate] = useState<string | undefined>();
   const [isCalendarSettingsOpen, setIsCalendarSettingsOpen] = useState(false);
+  const [isResetAllOpen, setIsResetAllOpen] = useState(false);
 
-  const handleOpenAddTask = (folderId?: PrimaryFolderId) => {
+  const handleOpenAddTask = (folderId?: string) => {
     setDefaultFolder(folderId);
     setEditingTask(null);
     setIsAddTaskOpen(true);
@@ -54,12 +57,13 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500 selection:text-white">
-      {/* Top Header with User Profile and Logout */}
+      {/* Top Header with User Profile, Salah tab, and Reset All Data option */}
       <Header
         onOpenAddTask={() => handleOpenAddTask()}
         onOpenResetDay={() => setIsResetDayOpen(true)}
         onOpenSyncCalendar={() => handleOpenSyncCalendar()}
         onOpenCalendarSettings={() => setIsCalendarSettingsOpen(true)}
+        onOpenResetAllData={() => setIsResetAllOpen(true)}
       />
 
       {/* Cloud Loading Banner if fetching initial Firestore state */}
@@ -81,7 +85,7 @@ function AppContent() {
               onOpenSyncCalendar={() => handleOpenSyncCalendar()}
             />
 
-            {/* 2. Three Primary Folder Cards: Academic, Admission, English Learning */}
+            {/* 2. Dynamic Folder Cards & Subject Manager */}
             <FolderSummaryCards />
 
             {/* 3. Daily Target Tasks List with Checkboxes & Interactive Stopwatch */}
@@ -90,6 +94,9 @@ function AppContent() {
               onEditTask={handleEditTask}
             />
           </>
+        ) : activeTab === 'salah' ? (
+          /* 5-Time Daily Salah Tracker Section */
+          <SalahTracker />
         ) : (
           /* Study History & Past Records Section */
           <StudyHistory
@@ -108,16 +115,38 @@ function AppContent() {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700 dark:text-slate-300">FocusTrack</span>
             <span aria-hidden="true">·</span>
-            <span>Academic · Admission · English Learning</span>
+            <span>Dynamic Study Planner & Salah Tracker</span>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
-              onClick={() => setActiveTab(activeTab === 'routine' ? 'history' : 'routine')}
-              className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+              onClick={() => setActiveTab('routine')}
+              className={`flex items-center gap-1.5 font-medium transition-colors ${
+                activeTab === 'routine' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>Routine</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('salah')}
+              className={`flex items-center gap-1.5 font-medium transition-colors ${
+                activeTab === 'salah' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Salah Tracker</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-1.5 font-medium transition-colors ${
+                activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span>{activeTab === 'routine' ? 'View Study History' : 'Back to Today’s Routine'}</span>
+              <span>History</span>
             </button>
 
             <button
@@ -125,7 +154,7 @@ function AppContent() {
               className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download Standalone .html</span>
+              <span>Single-File HTML</span>
             </button>
 
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
@@ -176,6 +205,12 @@ function AppContent() {
       <CalendarSettingsModal
         isOpen={isCalendarSettingsOpen}
         onClose={() => setIsCalendarSettingsOpen(false)}
+      />
+
+      {/* Reset All Data Confirmation Modal */}
+      <ResetAllDataModal
+        isOpen={isResetAllOpen}
+        onClose={() => setIsResetAllOpen(false)}
       />
     </div>
   );

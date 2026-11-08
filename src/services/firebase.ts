@@ -16,22 +16,25 @@ import {
   getDocFromServer,
   Unsubscribe,
 } from 'firebase/firestore';
-import { DailyTask, DateStudyRecord, ActiveStopwatchState } from '../types';
+import {
+  DailyTask,
+  DateStudyRecord,
+  ActiveStopwatchState,
+  FolderDefinition,
+  DailySalahRecord,
+} from '../types';
+import { DEFAULT_DYNAMIC_FOLDERS } from '../utils/folderConstants';
 
-export const firebaseConfig = {
-  apiKey: "AIzaSyCUxcipHqLxPtFEBsdEZ2Krg31bt4O5Nzc",
-  authDomain: "study-traker-4cf8d.firebaseapp.com",
-  projectId: "study-traker-4cf8d",
-  storageBucket: "study-traker-4cf8d.firebasestorage.app",
-  messagingSenderId: "247511330621",
-  appId: "1:247511330621:web:c732d3554d7086bc261f54",
-  measurementId: "G-11M8DX9EX8"
-};
+import firebaseAppletConfig from '../../firebase-applet-config.json';
+
+export const firebaseConfig = firebaseAppletConfig;
 
 // Initialize Firebase App instance
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = firebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+  : getFirestore(app);
 
 // Google Auth Provider setup
 export const googleProvider = new GoogleAuthProvider();
@@ -107,8 +110,10 @@ export async function testConnection(): Promise<boolean> {
 
 // User Study Data Payload
 export interface UserStudyDataPayload {
+  folders?: FolderDefinition[];
   tasks: DailyTask[];
   dateRecords: Record<string, DateStudyRecord>;
+  salahRecords?: Record<string, DailySalahRecord>;
   stopwatch?: ActiveStopwatchState;
   lastUpdated: string;
   userEmail?: string | null;
@@ -121,16 +126,20 @@ export interface UserStudyDataPayload {
 export async function saveUserStudyDataToFirestore(
   userId: string,
   data: {
+    folders?: FolderDefinition[];
     tasks: DailyTask[];
     dateRecords: Record<string, DateStudyRecord>;
+    salahRecords?: Record<string, DailySalahRecord>;
     stopwatch?: ActiveStopwatchState;
   }
 ): Promise<void> {
   const path = `users/${userId}/studyData/main`;
   try {
     const payload: UserStudyDataPayload = {
+      folders: data.folders,
       tasks: data.tasks,
       dateRecords: data.dateRecords,
+      salahRecords: data.salahRecords || {},
       stopwatch: data.stopwatch,
       lastUpdated: new Date().toISOString(),
       userEmail: auth.currentUser?.email || null,
@@ -139,6 +148,36 @@ export async function saveUserStudyDataToFirestore(
 
     const docRef = doc(db, 'users', userId, 'studyData', 'main');
     await setDoc(docRef, payload, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Resets user's study data back to clean defaults
+ */
+export async function resetUserStudyDataInFirestore(userId: string): Promise<void> {
+  const path = `users/${userId}/studyData/main`;
+  try {
+    const freshPayload: UserStudyDataPayload = {
+      folders: DEFAULT_DYNAMIC_FOLDERS,
+      tasks: [],
+      dateRecords: {},
+      salahRecords: {},
+      stopwatch: {
+        taskId: null,
+        folderId: null,
+        isRunning: false,
+        secondsElapsed: 0,
+        lastTimestamp: Date.now(),
+      },
+      lastUpdated: new Date().toISOString(),
+      userEmail: auth.currentUser?.email || null,
+      displayName: auth.currentUser?.displayName || null,
+    };
+
+    const docRef = doc(db, 'users', userId, 'studyData', 'main');
+    await setDoc(docRef, freshPayload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }

@@ -16,13 +16,14 @@ import {
 } from 'lucide-react';
 
 interface TasksListProps {
-  onOpenAddTask: (folderId?: PrimaryFolderId) => void;
+  onOpenAddTask: (folderId?: string) => void;
   onEditTask: (task: DailyTask) => void;
 }
 
 export const TasksList: React.FC<TasksListProps> = ({ onOpenAddTask, onEditTask }) => {
   const {
     tasks,
+    folders,
     selectedFolderFilter,
     toggleTaskComplete,
     deleteTask,
@@ -78,7 +79,14 @@ export const TasksList: React.FC<TasksListProps> = ({ onOpenAddTask, onEditTask 
       ) : (
         <div className="space-y-3">
           {filteredTasks.map((task) => {
-            const folder = PRIMARY_FOLDERS[task.folderId];
+            const folder =
+              folders.find((f) => f.id === task.folderId) ||
+              PRIMARY_FOLDERS[task.folderId] || {
+                name: 'Study',
+                color: '#4F46E5',
+                badgeClass:
+                  'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
+              };
             const isStopwatchActive = stopwatch.isRunning && stopwatch.taskId === task.id;
             const taskPct = task.targetMinutes > 0 ? Math.min(100, Math.round((task.actualMinutes / task.targetMinutes) * 100)) : 0;
 

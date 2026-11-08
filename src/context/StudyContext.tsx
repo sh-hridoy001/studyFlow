@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   DailyTask,
-  PrimaryFolderId,
+  FolderDefinition,
   ActiveStopwatchState,
   DateStudyRecord,
   ActiveMainTab,
   HistoricalTaskRecord,
+  DailySalahRecord,
+  SalahPrayerName,
 } from '../types';
-import { INITIAL_DAILY_TASKS } from '../utils/folderConstants';
+import { DEFAULT_DYNAMIC_FOLDERS } from '../utils/folderConstants';
 import { INITIAL_DATE_RECORDS } from '../utils/initialHistory';
 import {
   toDateKey,
@@ -24,9 +26,10 @@ import {
   saveUserStudyDataToFirestore,
   subscribeToUserStudyData,
   fetchUserStudyDataFromFirestore,
+  resetUserStudyDataInFirestore,
 } from '../services/firebase';
 
-interface FolderStats {
+export interface FolderStats {
   targetMinutes: number;
   actualMinutes: number;
   percent: number;
@@ -39,7 +42,7 @@ export interface PeriodSummary {
   totalTargetMinutes: number;
   percent: number;
   activeDaysCount: number;
-  folderBreakdown: Record<PrimaryFolderId, number>;
+  folderBreakdown: Record<string, number>;
 }
 
 export type CloudSyncStatus = 'synced' | 'saving' | 'offline' | 'loading';
@@ -49,15 +52,24 @@ interface StudyContextType {
   activeTab: ActiveMainTab;
   setActiveTab: (tab: ActiveMainTab) => void;
 
-  // Cloud Sync
+  // Cloud Sync & Reset
   syncStatus: CloudSyncStatus;
   isDataLoading: boolean;
   refreshFromCloud: () => Promise<void>;
+  resetAllUserData: () => Promise<void>;
+
+  // Dynamic Folders & Subjects
+  folders: FolderDefinition[];
+  addFolder: (folder: { name: string; subtitle?: string; color: string; subjects?: string[] }) => FolderDefinition;
+  updateFolder: (id: string, updates: Partial<FolderDefinition>) => void;
+  deleteFolder: (id: string) => void;
+  addSubjectToFolder: (folderId: string, subjectName: string) => void;
+  deleteSubjectFromFolder: (folderId: string, subjectName: string) => void;
 
   // Tasks state
   tasks: DailyTask[];
   addTask: (data: {
-    folderId: PrimaryFolderId;
+    folderId: string;
     subjectName: string;
     topics: string;
     targetMinutes: number;
@@ -70,13 +82,22 @@ interface StudyContextType {
 
   // Active Stopwatch
   stopwatch: ActiveStopwatchState;
-  startStopwatch: (taskId: string, folderId: PrimaryFolderId) => void;
+  startStopwatch: (taskId: string, folderId: string) => void;
   pauseStopwatch: () => void;
-  toggleStopwatch: (taskId?: string, folderId?: PrimaryFolderId) => void;
+  toggleStopwatch: (taskId?: string, folderId?: string) => void;
   resetStopwatch: () => void;
 
   // Start New Day / Reset Daily Progress
   startNewDay: (archiveFirst?: boolean) => void;
+
+  // 5-Time Daily Salah Tracker
+  salahRecords: Record<string, DailySalahRecord>;
+  selectedSalahDate: string;
+  setSelectedSalahDate: (dateStr: string) => void;
+  toggleSalahPrayer: (dateStr: string, prayer: SalahPrayerName) => void;
+  updateSalahNotes: (dateStr: string, notes: string) => void;
+  salahStreakDays: number;
+  todaySalahCount: number;
 
   // History & Date Records
   dateRecords: Record<string, DateStudyRecord>;
@@ -84,7 +105,7 @@ interface StudyContextType {
   setSelectedHistoryDate: (dateKey: string) => void;
   addPastStudyEntry: (data: {
     date: string;
-    folderId: PrimaryFolderId;
+    folderId: string;
     subjectName: string;
     topics: string;
     durationMinutes: number;
@@ -100,7 +121,7 @@ interface StudyContextType {
   streakDays: number;
 
   // Today Statistics
-  folderStats: Record<PrimaryFolderId, FolderStats>;
+  folderStats: Record<string, FolderStats>;
   totalTargetMinutes: number;
   totalActualMinutes: number;
   overallPercent: number;
@@ -108,8 +129,8 @@ interface StudyContextType {
   completedTasksCount: number;
 
   // Filters & Theme
-  selectedFolderFilter: PrimaryFolderId | 'all';
-  setSelectedFolderFilter: (filter: PrimaryFolderId | 'all') => void;
+  selectedFolderFilter: string | 'all';
+  setSelectedFolderFilter: (filter: string | 'all') => void;
   theme: 'light' | 'dark';
   toggleTheme: () => void;
 }
@@ -143,14 +164,23 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Main active tab ('routine' vs 'history')
+  // Main active tab ('routine' | 'salah' | 'history')
   const [activeTab, setActiveTab] = useState<ActiveMainTab>('routine');
 
+  // Dynamic Folders state
+  const [folders, setFolders] = useState<FolderDefinition[]>(DEFAULT_DYNAMIC_FOLDERS);
+
   // Filter selection in routine planner
-  const [selectedFolderFilter, setSelectedFolderFilter] = useState<PrimaryFolderId | 'all'>('all');
+  const [selectedFolderFilter, setSelectedFolderFilter] = useState<string | 'all'>('all');
 
   // Selected date in history view (defaults to today)
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<string>(() => toDateKey(new Date()));
+
+  // Selected date in Salah tracker (defaults to today)
+  const [selectedSalahDate, setSelectedSalahDate] = useState<string>(() => toDateKey(new Date()));
+
+  // Daily Salah records
+  const [salahRecords, setSalahRecords] = useState<Record<string, DailySalahRecord>>({});
 
   // Cloud Sync state
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('loading');
@@ -158,11 +188,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const isInitialLoadDoneRef = useRef<boolean>(false);
   const saveTimeoutRef = useRef<number | null>(null);
 
-  // Daily Tasks state (synced with Firestore)
-  const [tasks, setTasks] = useState<DailyTask[]>(INITIAL_DAILY_TASKS);
+  // Daily Tasks state
+  const [tasks, setTasks] = useState<DailyTask[]>([]);
 
-  // Date-Categorized Study Records state (synced with Firestore)
-  const [dateRecords, setDateRecords] = useState<Record<string, DateStudyRecord>>(INITIAL_DATE_RECORDS);
+  // Date-Categorized Study Records state
+  const [dateRecords, setDateRecords] = useState<Record<string, DateStudyRecord>>({});
 
   // Stopwatch state
   const [stopwatch, setStopwatch] = useState<ActiveStopwatchState>({
@@ -173,15 +203,91 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     lastTimestamp: Date.now(),
   });
 
-  // Track if state has been modified locally so we can push to Firestore
   const isLocalUpdateRef = useRef<boolean>(false);
 
-  // Firestore Real-Time Listener: Loads automatically for both PC and mobile browsers immediately after login
+  // Push local changes to Firestore with debounce
+  const scheduleSaveToFirestore = useCallback(
+    (
+      newFolders: FolderDefinition[],
+      newTasks: DailyTask[],
+      newDateRecords: Record<string, DateStudyRecord>,
+      newSalahRecords: Record<string, DailySalahRecord>
+    ) => {
+      if (!user || !isInitialLoadDoneRef.current) return;
+
+      if (user.uid.startsWith('guest_')) {
+        try {
+          const guestPayload = {
+            folders: newFolders,
+            tasks: newTasks,
+            dateRecords: newDateRecords,
+            salahRecords: newSalahRecords,
+            stopwatch,
+          };
+          localStorage.setItem('focustrack_guest_data_' + user.uid, JSON.stringify(guestPayload));
+          setSyncStatus('synced');
+        } catch (e) {
+          console.error('Failed to save guest study data:', e);
+        }
+        return;
+      }
+
+      setSyncStatus('saving');
+      if (saveTimeoutRef.current) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+
+      saveTimeoutRef.current = window.setTimeout(async () => {
+        try {
+          await saveUserStudyDataToFirestore(user.uid, {
+            folders: newFolders,
+            tasks: newTasks,
+            dateRecords: newDateRecords,
+            salahRecords: newSalahRecords,
+            stopwatch,
+          });
+          setSyncStatus('synced');
+        } catch (error) {
+          console.error('Failed to sync study data to Firestore:', error);
+          setSyncStatus('offline');
+        }
+      }, 500);
+    },
+    [user, stopwatch]
+  );
+
+  // Firestore Real-Time Listener: Initializes fresh & isolated for new users under users/{userId}
   useEffect(() => {
     if (!user) {
       setIsDataLoading(false);
       setSyncStatus('offline');
       isInitialLoadDoneRef.current = false;
+      return;
+    }
+
+    if (user.uid.startsWith('guest_')) {
+      setIsDataLoading(true);
+      const raw = localStorage.getItem('focustrack_guest_data_' + user.uid);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed.folders) && parsed.folders.length > 0) setFolders(parsed.folders);
+          if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
+          if (parsed.dateRecords) setDateRecords(parsed.dateRecords);
+          if (parsed.salahRecords) setSalahRecords(parsed.salahRecords);
+          if (parsed.stopwatch) setStopwatch(parsed.stopwatch);
+        } catch (e) {
+          console.error('Failed parsing guest data:', e);
+        }
+      } else {
+        setFolders(DEFAULT_DYNAMIC_FOLDERS);
+        setTasks([]);
+        setDateRecords({});
+        setSalahRecords({});
+      }
+      isInitialLoadDoneRef.current = true;
+      setIsDataLoading(false);
+      setSyncStatus('synced');
       return;
     }
 
@@ -192,26 +298,52 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       user.uid,
       (cloudData) => {
         if (cloudData) {
-          // Received updated data from Firestore
+          // User already has an existing document
+          if (Array.isArray(cloudData.folders) && cloudData.folders.length > 0) {
+            setFolders(cloudData.folders);
+          } else {
+            setFolders(DEFAULT_DYNAMIC_FOLDERS);
+          }
+
           if (Array.isArray(cloudData.tasks)) {
             setTasks(cloudData.tasks);
+          } else {
+            setTasks([]);
           }
+
           if (cloudData.dateRecords && typeof cloudData.dateRecords === 'object') {
             setDateRecords(cloudData.dateRecords);
+          } else {
+            setDateRecords({});
           }
+
+          if (cloudData.salahRecords && typeof cloudData.salahRecords === 'object') {
+            setSalahRecords(cloudData.salahRecords);
+          } else {
+            setSalahRecords({});
+          }
+
           if (cloudData.stopwatch) {
-            setStopwatch((prev) => {
-              // Only overwrite stopwatch if not currently ticking locally
-              if (prev.isRunning) return prev;
-              return cloudData.stopwatch || prev;
-            });
+            setStopwatch((prev) => (prev.isRunning ? prev : cloudData.stopwatch || prev));
           }
           setSyncStatus('synced');
         } else {
-          // First time user with empty Firestore document: seed with initial tasks and save to Firestore
+          // Fresh start for a new user: cleanly initialize isolated under users/{userId}
+          const freshFolders = DEFAULT_DYNAMIC_FOLDERS;
+          const freshTasks: DailyTask[] = [];
+          const freshRecords = {};
+          const freshSalah = {};
+
+          setFolders(freshFolders);
+          setTasks(freshTasks);
+          setDateRecords(freshRecords);
+          setSalahRecords(freshSalah);
+
           saveUserStudyDataToFirestore(user.uid, {
-            tasks: INITIAL_DAILY_TASKS,
-            dateRecords: INITIAL_DATE_RECORDS,
+            folders: freshFolders,
+            tasks: freshTasks,
+            dateRecords: freshRecords,
+            salahRecords: freshSalah,
           })
             .then(() => setSyncStatus('synced'))
             .catch(() => setSyncStatus('offline'));
@@ -232,43 +364,22 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [user]);
 
-  // Push local changes to Firestore with a short debounce to avoid excessive writes
-  const scheduleSaveToFirestore = useCallback(
-    (newTasks: DailyTask[], newDateRecords: Record<string, DateStudyRecord>) => {
-      if (!user || !isInitialLoadDoneRef.current) return;
-
-      setSyncStatus('saving');
-      if (saveTimeoutRef.current) {
-        window.clearTimeout(saveTimeoutRef.current);
-      }
-
-      saveTimeoutRef.current = window.setTimeout(async () => {
-        try {
-          await saveUserStudyDataToFirestore(user.uid, {
-            tasks: newTasks,
-            dateRecords: newDateRecords,
-            stopwatch,
-          });
-          setSyncStatus('synced');
-        } catch (error) {
-          console.error('Failed to sync study data to Firestore:', error);
-          setSyncStatus('offline');
-        }
-      }, 600);
-    },
-    [user, stopwatch]
-  );
-
   // Manual refresh from cloud
   const refreshFromCloud = async () => {
     if (!user) return;
+    if (user.uid.startsWith('guest_')) {
+      setSyncStatus('synced');
+      return;
+    }
     setIsDataLoading(true);
     setSyncStatus('loading');
     try {
       const data = await fetchUserStudyDataFromFirestore(user.uid);
       if (data) {
+        if (data.folders) setFolders(data.folders);
         if (data.tasks) setTasks(data.tasks);
         if (data.dateRecords) setDateRecords(data.dateRecords);
+        if (data.salahRecords) setSalahRecords(data.salahRecords);
         setSyncStatus('synced');
       }
     } catch (e) {
@@ -276,6 +387,41 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSyncStatus('offline');
     } finally {
       setIsDataLoading(false);
+    }
+  };
+
+  // Reset all user data back to clean zero & defaults
+  const resetAllUserData = async () => {
+    if (!user) return;
+    if (user.uid.startsWith('guest_')) {
+      localStorage.removeItem('focustrack_guest_data_' + user.uid);
+      setFolders(DEFAULT_DYNAMIC_FOLDERS);
+      setTasks([]);
+      setDateRecords({});
+      setSalahRecords({});
+      resetStopwatch();
+      setSyncStatus('synced');
+      try {
+        confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+      } catch {}
+      return;
+    }
+    setSyncStatus('saving');
+    try {
+      await resetUserStudyDataInFirestore(user.uid);
+      setFolders(DEFAULT_DYNAMIC_FOLDERS);
+      setTasks([]);
+      setDateRecords({});
+      setSalahRecords({});
+      resetStopwatch();
+      setSyncStatus('synced');
+      try {
+        confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+      } catch {}
+    } catch (error) {
+      console.error('Failed to reset user study data:', error);
+      setSyncStatus('offline');
+      throw error;
     }
   };
 
@@ -288,22 +434,23 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const totalActual = tasks.reduce((sum, t) => sum + t.actualMinutes, 0);
 
     const folderBreakdown: Record<
-      PrimaryFolderId,
+      string,
       { targetMinutes: number; actualMinutes: number; tasksCount: number; completedTasksCount: number }
-    > = {
-      academic: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-      admission: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-      english: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-    };
+    > = {};
+
+    folders.forEach((f) => {
+      folderBreakdown[f.id] = { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 };
+    });
 
     tasks.forEach((t) => {
-      const f = folderBreakdown[t.folderId];
-      if (f) {
-        f.targetMinutes += t.targetMinutes;
-        f.actualMinutes += t.actualMinutes;
-        f.tasksCount += 1;
-        if (t.completed) f.completedTasksCount += 1;
+      if (!folderBreakdown[t.folderId]) {
+        folderBreakdown[t.folderId] = { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 };
       }
+      const f = folderBreakdown[t.folderId];
+      f.targetMinutes += t.targetMinutes;
+      f.actualMinutes += t.actualMinutes;
+      f.tasksCount += 1;
+      if (t.completed) f.completedTasksCount += 1;
     });
 
     const historicalTasks: HistoricalTaskRecord[] = tasks.map((t) => ({
@@ -341,13 +488,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       if (isLocalUpdateRef.current) {
-        scheduleSaveToFirestore(tasks, nextRecords);
+        scheduleSaveToFirestore(folders, tasks, nextRecords, salahRecords);
         isLocalUpdateRef.current = false;
       }
 
       return nextRecords;
     });
-  }, [tasks, scheduleSaveToFirestore]);
+  }, [tasks, folders, salahRecords, scheduleSaveToFirestore]);
 
   // Stopwatch Ticking Engine
   useEffect(() => {
@@ -359,7 +506,6 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (!prev.isRunning) return prev;
           const nextSeconds = prev.secondsElapsed + 1;
 
-          // Every 60 seconds of elapsed stopwatch time, increment actualMinutes on the task
           if (nextSeconds > 0 && nextSeconds % 60 === 0 && prev.taskId) {
             isLocalUpdateRef.current = true;
             setTasks((currentTasks) =>
@@ -383,9 +529,73 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [stopwatch.isRunning, stopwatch.taskId]);
 
+  // Dynamic Folder CRUD Operations
+  const addFolder = (data: { name: string; subtitle?: string; color: string; subjects?: string[] }): FolderDefinition => {
+    const newId = `folder-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const newFolder: FolderDefinition = {
+      id: newId,
+      name: data.name.trim(),
+      subtitle: data.subtitle?.trim() || 'Custom study folder',
+      color: data.color || '#4F46E5',
+      badgeClass: 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
+      subjects: data.subjects || [],
+    };
+
+    setFolders((prev) => {
+      const nextFolders = [...prev, newFolder];
+      scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
+      return nextFolders;
+    });
+    return newFolder;
+  };
+
+  const updateFolder = (id: string, updates: Partial<FolderDefinition>) => {
+    setFolders((prev) => {
+      const nextFolders = prev.map((f) => (f.id === id ? { ...f, ...updates } : f));
+      scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
+      return nextFolders;
+    });
+  };
+
+  const deleteFolder = (id: string) => {
+    setFolders((prev) => {
+      const nextFolders = prev.filter((f) => f.id !== id);
+      scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
+      return nextFolders;
+    });
+    if (selectedFolderFilter === id) {
+      setSelectedFolderFilter('all');
+    }
+  };
+
+  const addSubjectToFolder = (folderId: string, subjectName: string) => {
+    const trimmed = subjectName.trim();
+    if (!trimmed) return;
+    setFolders((prev) => {
+      const nextFolders = prev.map((f) => {
+        if (f.id !== folderId) return f;
+        if (f.subjects.includes(trimmed)) return f;
+        return { ...f, subjects: [...f.subjects, trimmed] };
+      });
+      scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
+      return nextFolders;
+    });
+  };
+
+  const deleteSubjectFromFolder = (folderId: string, subjectName: string) => {
+    setFolders((prev) => {
+      const nextFolders = prev.map((f) => {
+        if (f.id !== folderId) return f;
+        return { ...f, subjects: f.subjects.filter((s) => s !== subjectName) };
+      });
+      scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
+      return nextFolders;
+    });
+  };
+
   // Task CRUD operations
   const addTask = (data: {
-    folderId: PrimaryFolderId;
+    folderId: string;
     subjectName: string;
     topics: string;
     targetMinutes: number;
@@ -403,10 +613,15 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
     };
 
+    // If subject is not yet in the folder's subjects list, add it dynamically!
+    if (data.subjectName.trim()) {
+      addSubjectToFolder(data.folderId, data.subjectName.trim());
+    }
+
     isLocalUpdateRef.current = true;
     setTasks((prev) => {
       const nextTasks = [newTask, ...prev];
-      scheduleSaveToFirestore(nextTasks, dateRecords);
+      scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
       return nextTasks;
     });
     return newTask;
@@ -416,7 +631,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isLocalUpdateRef.current = true;
     setTasks((prev) => {
       const nextTasks = prev.map((t) => (t.id === id ? { ...t, ...updates } : t));
-      scheduleSaveToFirestore(nextTasks, dateRecords);
+      scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
       return nextTasks;
     });
   };
@@ -434,7 +649,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isLocalUpdateRef.current = true;
     setTasks((prev) => {
       const nextTasks = prev.filter((t) => t.id !== id);
-      scheduleSaveToFirestore(nextTasks, dateRecords);
+      scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
       return nextTasks;
     });
   };
@@ -448,13 +663,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (willComplete) {
           try {
             confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
-          } catch {
-            // ignore
-          }
+          } catch {}
         }
         return { ...t, completed: willComplete };
       });
-      scheduleSaveToFirestore(nextTasks, dateRecords);
+      scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
       return nextTasks;
     });
   };
@@ -465,13 +678,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const nextTasks = prev.map((t) =>
         t.id === taskId ? { ...t, actualMinutes: Math.max(0, t.actualMinutes + minutes) } : t
       );
-      scheduleSaveToFirestore(nextTasks, dateRecords);
+      scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
       return nextTasks;
     });
   };
 
   // Stopwatch controls
-  const startStopwatch = (taskId: string, folderId: PrimaryFolderId) => {
+  const startStopwatch = (taskId: string, folderId: string) => {
     if (stopwatch.taskId && stopwatch.taskId !== taskId && stopwatch.secondsElapsed >= 30) {
       const leftoverMinutes = Math.round(stopwatch.secondsElapsed / 60);
       if (leftoverMinutes > 0) {
@@ -480,7 +693,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const nextTasks = prev.map((t) =>
             t.id === stopwatch.taskId ? { ...t, actualMinutes: t.actualMinutes + leftoverMinutes } : t
           );
-          scheduleSaveToFirestore(nextTasks, dateRecords);
+          scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
           return nextTasks;
         });
       }
@@ -504,7 +717,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const nextTasks = prev.map((t) =>
             t.id === stopwatch.taskId ? { ...t, actualMinutes: t.actualMinutes + leftoverMinutes } : t
           );
-          scheduleSaveToFirestore(nextTasks, dateRecords);
+          scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
           return nextTasks;
         });
       }
@@ -518,12 +731,12 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }));
   };
 
-  const toggleStopwatch = (taskId?: string, folderId?: PrimaryFolderId) => {
+  const toggleStopwatch = (taskId?: string, folderId?: string) => {
     if (stopwatch.isRunning) {
       pauseStopwatch();
     } else {
       const targetId = taskId || stopwatch.taskId || tasks[0]?.id;
-      const targetFolder = folderId || stopwatch.folderId || tasks[0]?.folderId || 'academic';
+      const targetFolder = folderId || stopwatch.folderId || tasks[0]?.folderId || folders[0]?.id || 'academic';
       if (targetId) {
         startStopwatch(targetId, targetFolder);
       }
@@ -553,22 +766,23 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const totalActual = tasks.reduce((sum, t) => sum + t.actualMinutes, 0);
 
         const folderBreakdown: Record<
-          PrimaryFolderId,
+          string,
           { targetMinutes: number; actualMinutes: number; tasksCount: number; completedTasksCount: number }
-        > = {
-          academic: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-          admission: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-          english: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-        };
+        > = {};
+
+        folders.forEach((f) => {
+          folderBreakdown[f.id] = { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 };
+        });
 
         tasks.forEach((t) => {
-          const f = folderBreakdown[t.folderId];
-          if (f) {
-            f.targetMinutes += t.targetMinutes;
-            f.actualMinutes += t.actualMinutes;
-            f.tasksCount += 1;
-            if (t.completed) f.completedTasksCount += 1;
+          if (!folderBreakdown[t.folderId]) {
+            folderBreakdown[t.folderId] = { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 };
           }
+          const f = folderBreakdown[t.folderId];
+          f.targetMinutes += t.targetMinutes;
+          f.actualMinutes += t.actualMinutes;
+          f.tasksCount += 1;
+          if (t.completed) f.completedTasksCount += 1;
         });
 
         const dayTasks: HistoricalTaskRecord[] = tasks.map((t) => ({
@@ -601,21 +815,108 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       setTasks(resetTasks);
       resetStopwatch();
-      scheduleSaveToFirestore(resetTasks, nextDateRecords);
+      scheduleSaveToFirestore(folders, resetTasks, nextDateRecords, salahRecords);
 
       try {
         confetti({ particleCount: 50, spread: 70, origin: { y: 0.5 } });
-      } catch {
-        // ignore
-      }
+      } catch {}
     },
-    [tasks, dateRecords, scheduleSaveToFirestore]
+    [tasks, dateRecords, folders, salahRecords, scheduleSaveToFirestore]
   );
 
-  // Add a study entry to a past date
+  // 5-Time Daily Salah Tracker Handlers
+  const toggleSalahPrayer = (dateStr: string, prayer: SalahPrayerName) => {
+    setSalahRecords((prev) => {
+      const existing = prev[dateStr] || {
+        date: dateStr,
+        fajr: false,
+        dhuhr: false,
+        asr: false,
+        maghrib: false,
+        isha: false,
+      };
+
+      const willBeComplete = !existing[prayer];
+      const updated = {
+        ...existing,
+        [prayer]: willBeComplete,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const nextRecords = {
+        ...prev,
+        [dateStr]: updated,
+      };
+
+      // Confetti if all 5 prayers completed for this day!
+      if (
+        updated.fajr &&
+        updated.dhuhr &&
+        updated.asr &&
+        updated.maghrib &&
+        updated.isha &&
+        willBeComplete
+      ) {
+        try {
+          confetti({ particleCount: 45, spread: 65, origin: { y: 0.6 } });
+        } catch {}
+      }
+
+      scheduleSaveToFirestore(folders, tasks, dateRecords, nextRecords);
+      return nextRecords;
+    });
+  };
+
+  const updateSalahNotes = (dateStr: string, notes: string) => {
+    setSalahRecords((prev) => {
+      const existing = prev[dateStr] || {
+        date: dateStr,
+        fajr: false,
+        dhuhr: false,
+        asr: false,
+        maghrib: false,
+        isha: false,
+      };
+
+      const nextRecords = {
+        ...prev,
+        [dateStr]: {
+          ...existing,
+          notes,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+
+      scheduleSaveToFirestore(folders, tasks, dateRecords, nextRecords);
+      return nextRecords;
+    });
+  };
+
+  // Salah streak & today's progress
+  const todayKey = toDateKey(new Date());
+  const todaySalahRecord = salahRecords[todayKey];
+  const todaySalahCount = useMemo(() => {
+    if (!todaySalahRecord) return 0;
+    return (
+      (todaySalahRecord.fajr ? 1 : 0) +
+      (todaySalahRecord.dhuhr ? 1 : 0) +
+      (todaySalahRecord.asr ? 1 : 0) +
+      (todaySalahRecord.maghrib ? 1 : 0) +
+      (todaySalahRecord.isha ? 1 : 0)
+    );
+  }, [todaySalahRecord]);
+
+  const salahStreakDays = useMemo(() => {
+    const perfectDates = Object.entries(salahRecords)
+      .filter(([_, rec]) => rec.fajr && rec.dhuhr && rec.asr && rec.maghrib && rec.isha)
+      .map(([k]) => k);
+    return calculateStreakFromDates(perfectDates);
+  }, [salahRecords]);
+
+  // Add past study entry
   const addPastStudyEntry = (data: {
     date: string;
-    folderId: PrimaryFolderId;
+    folderId: string;
     subjectName: string;
     topics: string;
     durationMinutes: number;
@@ -628,11 +929,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         totalTargetMinutes: data.durationMinutes,
         totalActualMinutes: 0,
         tasks: [],
-        folderBreakdown: {
-          academic: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-          admission: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-          english: { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 },
-        },
+        folderBreakdown: {},
       };
 
       const newTask: HistoricalTaskRecord = {
@@ -651,13 +948,14 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const updatedTarget = Math.max(existing.totalTargetMinutes, updatedActual);
 
       const folderBreakdown = { ...existing.folderBreakdown };
-      const f = folderBreakdown[data.folderId];
-      if (f) {
-        f.actualMinutes += data.durationMinutes;
-        f.targetMinutes += data.durationMinutes;
-        f.tasksCount += 1;
-        if (data.completed) f.completedTasksCount += 1;
+      if (!folderBreakdown[data.folderId]) {
+        folderBreakdown[data.folderId] = { targetMinutes: 0, actualMinutes: 0, tasksCount: 0, completedTasksCount: 0 };
       }
+      const f = folderBreakdown[data.folderId];
+      f.actualMinutes += data.durationMinutes;
+      f.targetMinutes += data.durationMinutes;
+      f.tasksCount += 1;
+      if (data.completed) f.completedTasksCount += 1;
 
       const nextRecords = {
         ...prev,
@@ -670,7 +968,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
       };
 
-      scheduleSaveToFirestore(tasks, nextRecords);
+      scheduleSaveToFirestore(folders, tasks, nextRecords, salahRecords);
       return nextRecords;
     });
   };
@@ -709,37 +1007,40 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
       };
 
-      scheduleSaveToFirestore(tasks, nextRecords);
+      scheduleSaveToFirestore(folders, tasks, nextRecords, salahRecords);
       return nextRecords;
     });
   };
 
-  // Folder Statistics for today
+  // Dynamic Folder Statistics for today
   const folderStats = useMemo(() => {
-    const stats: Record<PrimaryFolderId, FolderStats> = {
-      academic: { targetMinutes: 0, actualMinutes: 0, percent: 0, totalTasks: 0, completedTasks: 0 },
-      admission: { targetMinutes: 0, actualMinutes: 0, percent: 0, totalTasks: 0, completedTasks: 0 },
-      english: { targetMinutes: 0, actualMinutes: 0, percent: 0, totalTasks: 0, completedTasks: 0 },
-    };
+    const stats: Record<string, FolderStats> = {};
+
+    folders.forEach((f) => {
+      stats[f.id] = { targetMinutes: 0, actualMinutes: 0, percent: 0, totalTasks: 0, completedTasks: 0 };
+    });
 
     tasks.forEach((t) => {
+      if (!stats[t.folderId]) {
+        stats[t.folderId] = { targetMinutes: 0, actualMinutes: 0, percent: 0, totalTasks: 0, completedTasks: 0 };
+      }
       const f = stats[t.folderId];
+      f.targetMinutes += t.targetMinutes;
+      f.actualMinutes += t.actualMinutes;
+      f.totalTasks += 1;
+      if (t.completed) f.completedTasks += 1;
+    });
+
+    folders.forEach((folder) => {
+      const f = stats[folder.id];
       if (f) {
-        f.targetMinutes += t.targetMinutes;
-        f.actualMinutes += t.actualMinutes;
-        f.totalTasks += 1;
-        if (t.completed) f.completedTasks += 1;
+        f.percent =
+          f.targetMinutes > 0 ? Math.min(100, Math.round((f.actualMinutes / f.targetMinutes) * 100)) : 0;
       }
     });
 
-    (['academic', 'admission', 'english'] as PrimaryFolderId[]).forEach((key) => {
-      const f = stats[key];
-      f.percent =
-        f.targetMinutes > 0 ? Math.min(100, Math.round((f.actualMinutes / f.targetMinutes) * 100)) : 0;
-    });
-
     return stats;
-  }, [tasks]);
+  }, [tasks, folders]);
 
   const totalTargetMinutes = useMemo(() => tasks.reduce((sum, t) => sum + t.targetMinutes, 0), [tasks]);
   const totalActualMinutes = useMemo(() => tasks.reduce((sum, t) => sum + t.actualMinutes, 0), [tasks]);
@@ -751,7 +1052,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const totalTasksCount = tasks.length;
   const completedTasksCount = useMemo(() => tasks.filter((t) => t.completed).length, [tasks]);
 
-  // Weekly summary calculation (Monday to Sunday of current week)
+  // Weekly summary calculation
   const weeklySummary = useMemo<PeriodSummary>(() => {
     const now = new Date();
     const startWeek = getStartOfWeek(now);
@@ -761,7 +1062,8 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let actual = 0;
     let target = 0;
     let activeDays = 0;
-    const folderBreakdown: Record<PrimaryFolderId, number> = { academic: 0, admission: 0, english: 0 };
+    const folderBreakdown: Record<string, number> = {};
+    folders.forEach((f) => (folderBreakdown[f.id] = 0));
 
     weekDates.forEach((dKey) => {
       const record = dateRecords[dKey];
@@ -769,8 +1071,8 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         actual += record.totalActualMinutes;
         target += record.totalTargetMinutes;
         activeDays++;
-        (['academic', 'admission', 'english'] as PrimaryFolderId[]).forEach((fKey) => {
-          folderBreakdown[fKey] += record.folderBreakdown?.[fKey]?.actualMinutes || 0;
+        folders.forEach((f) => {
+          folderBreakdown[f.id] = (folderBreakdown[f.id] || 0) + (record.folderBreakdown?.[f.id]?.actualMinutes || 0);
         });
       }
     });
@@ -783,9 +1085,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       activeDaysCount: activeDays,
       folderBreakdown,
     };
-  }, [dateRecords]);
+  }, [dateRecords, folders]);
 
-  // Monthly summary calculation (1st to last day of current month)
+  // Monthly summary calculation
   const monthlySummary = useMemo<PeriodSummary>(() => {
     const now = new Date();
     const startMonth = getStartOfMonth(now);
@@ -795,7 +1097,8 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let actual = 0;
     let target = 0;
     let activeDays = 0;
-    const folderBreakdown: Record<PrimaryFolderId, number> = { academic: 0, admission: 0, english: 0 };
+    const folderBreakdown: Record<string, number> = {};
+    folders.forEach((f) => (folderBreakdown[f.id] = 0));
 
     monthDates.forEach((dKey) => {
       const record = dateRecords[dKey];
@@ -803,8 +1106,8 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         actual += record.totalActualMinutes;
         target += record.totalTargetMinutes;
         activeDays++;
-        (['academic', 'admission', 'english'] as PrimaryFolderId[]).forEach((fKey) => {
-          folderBreakdown[fKey] += record.folderBreakdown?.[fKey]?.actualMinutes || 0;
+        folders.forEach((f) => {
+          folderBreakdown[f.id] = (folderBreakdown[f.id] || 0) + (record.folderBreakdown?.[f.id]?.actualMinutes || 0);
         });
       }
     });
@@ -817,7 +1120,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       activeDaysCount: activeDays,
       folderBreakdown,
     };
-  }, [dateRecords]);
+  }, [dateRecords, folders]);
 
   // All-time total study minutes
   const allTimeTotalMinutes = useMemo(() => {
@@ -840,6 +1143,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         syncStatus,
         isDataLoading,
         refreshFromCloud,
+        resetAllUserData,
+        folders,
+        addFolder,
+        updateFolder,
+        deleteFolder,
+        addSubjectToFolder,
+        deleteSubjectFromFolder,
         tasks,
         addTask,
         updateTask,
@@ -852,6 +1162,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleStopwatch,
         resetStopwatch,
         startNewDay,
+        salahRecords,
+        selectedSalahDate,
+        setSelectedSalahDate,
+        toggleSalahPrayer,
+        updateSalahNotes,
+        salahStreakDays,
+        todaySalahCount,
         dateRecords,
         selectedHistoryDate,
         setSelectedHistoryDate,

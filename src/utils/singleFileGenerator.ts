@@ -1,8 +1,9 @@
 /**
  * Generates a complete standalone single-file HTML, CSS, and JS study tracker.
  * Integrates Firebase Authentication (Google Sign-In) and Firestore Database
- * under users/{userId}/studyData across the 3 categories (Academic, Admission, English Learning),
- * with an introductory sign-in screen, user profile header, stopwatch, and past study history.
+ * under users/{userId}/studyData across dynamic categories,
+ * with 5-time Daily Salah prayer tracking, dynamic custom folders & subjects,
+ * introductory sign-in screen, user profile header, stopwatch, and past study history.
  */
 export function generateSingleFileHtml(): string {
   return `<!DOCTYPE html>
@@ -10,7 +11,7 @@ export function generateSingleFileHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FocusTrack - Study Tracker with Firebase & Firestore</title>
+  <title>FocusTrack - Study Tracker & Daily Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -21,12 +22,6 @@ export function generateSingleFileHtml(): string {
       --surface-border: #334155;
       --text: #f8fafc;
       --text-muted: #94a3b8;
-      --academic: #6366f1;
-      --admission: #f59e0b;
-      --english: #10b981;
-      --academic-bg: rgba(99, 102, 241, 0.15);
-      --admission-bg: rgba(245, 158, 11, 0.15);
-      --english-bg: rgba(16, 185, 129, 0.15);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
     body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; line-height: 1.5; min-height: 100vh; }
@@ -37,7 +32,7 @@ export function generateSingleFileHtml(): string {
     header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--surface-border); margin-bottom: 24px; flex-wrap: wrap; gap: 14px; }
     .logo { font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
     .nav-tabs { display: flex; gap: 6px; background: #0f172a; padding: 4px; border-radius: 12px; border: 1px solid var(--surface-border); }
-    .tab-btn { padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 600; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
+    .tab-btn { padding: 8px 16px; border-radius: 9px; font-size: 13px; font-weight: 600; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
     .tab-btn.active { background: var(--surface); color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
     .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
     
@@ -48,6 +43,8 @@ export function generateSingleFileHtml(): string {
     .btn-danger:hover { background: #ef4444; color: white; }
     .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--surface-border); }
     .btn-secondary:hover { background: #334155; }
+    .btn-emerald { background: #059669; color: white; }
+    .btn-emerald:hover { background: #047857; }
     
     /* User Profile Chip */
     .user-profile { display: flex; align-items: center; gap: 10px; background: #0f172a; border: 1px solid var(--surface-border); padding: 5px 12px; border-radius: 12px; font-size: 12px; }
@@ -63,16 +60,13 @@ export function generateSingleFileHtml(): string {
 
     /* Folder grid */
     .folder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 24px; }
-    .folder-card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 18px; }
+    .folder-card { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 16px; padding: 18px; transition: transform 0.2s; position: relative; }
     .badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
-    .badge-academic { background: var(--academic-bg); color: var(--academic); border: 1px solid rgba(99, 102, 241, 0.4); }
-    .badge-admission { background: var(--admission-bg); color: var(--admission); border: 1px solid rgba(245, 158, 11, 0.4); }
-    .badge-english { background: var(--english-bg); color: var(--english); border: 1px solid rgba(16, 185, 129, 0.4); }
 
     /* Tasks list */
     .task-item { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 14px; padding: 14px 18px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     .task-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 200px; }
-    .checkbox { width: 20px; height: 20px; border-radius: 6px; cursor: pointer; }
+    .checkbox { width: 20px; height: 20px; border-radius: 6px; cursor: pointer; accent-color: #4f46e5; }
     .completed-text { text-decoration: line-through; opacity: 0.5; }
 
     /* Auth Screen */
@@ -83,7 +77,7 @@ export function generateSingleFileHtml(): string {
 
     /* Modals */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
-    .modal-box { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 20px; max-width: 480px; width: 100%; padding: 24px; }
+    .modal-box { background: var(--surface); border: 1px solid var(--surface-border); border-radius: 20px; max-width: 480px; width: 100%; padding: 24px; max-height: 90vh; overflow-y: auto; }
     .input-group { margin-bottom: 14px; }
     .input-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
     .input-group input, .input-group select { width: 100%; padding: 10px 14px; background: #0f172a; border: 1px solid var(--surface-border); border-radius: 10px; color: white; font-size: 14px; }
@@ -96,6 +90,12 @@ export function generateSingleFileHtml(): string {
     .cal-day-label { text-align: center; font-size: 11px; font-weight: 700; color: var(--text-muted); padding: 4px; }
     
     .sync-status { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 99px; }
+
+    /* Salah Cards */
+    .salah-card { background: #0f172a; border: 1px solid var(--surface-border); border-radius: 16px; padding: 16px; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; margin-bottom: 12px; }
+    .salah-card.completed { background: rgba(16, 185, 129, 0.08); border-color: rgba(16, 185, 129, 0.4); }
+    .salah-check-btn { width: 42px; height: 42px; border-radius: 12px; border: 2px solid var(--surface-border); background: var(--surface); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: all 0.2s; }
+    .salah-check-btn.checked { background: #10b981; border-color: #10b981; color: white; box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
   </style>
 </head>
 <body>
@@ -105,7 +105,7 @@ export function generateSingleFileHtml(): string {
       <div style="font-size: 38px; margin-bottom: 12px;">⏱️</div>
       <h1 style="font-size: 26px; font-weight: 800; margin-bottom: 8px;">FocusTrack</h1>
       <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6;">
-        Daily Routine Planner across <strong>Academic</strong>, <strong>Admission</strong>, and <strong>English Learning</strong>.
+        Daily Routine Planner, Dynamic Folders & Subjects, and 5-Time Daily Salah Tracker.
       </p>
       
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 24px 0; text-align: center;">
@@ -118,8 +118,8 @@ export function generateSingleFileHtml(): string {
           <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Test Prep</div>
         </div>
         <div style="background: rgba(16,185,129,0.1); padding: 12px; border-radius: 12px; border: 1px solid rgba(16,185,129,0.3);">
-          <div style="font-weight: 800; color: #34d399; font-size: 12px;">ENGLISH</div>
-          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Fluency & IELTS</div>
+          <div style="font-weight: 800; color: #34d399; font-size: 12px;">PRAYER</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">5-Time Salah</div>
         </div>
       </div>
 
@@ -130,11 +130,15 @@ export function generateSingleFileHtml(): string {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
         </svg>
-        <span>Sign in with Google</span>
+        <span>Continue with Google</span>
+      </button>
+
+      <button id="guestLoginBtn" class="btn btn-secondary" style="width:100%; margin-top:10px; padding:12px; font-size:14px; justify-content:center;">
+        👤 Continue in Local Mode
       </button>
 
       <div style="font-size: 11px; color: var(--text-muted); margin-top: 14px;">
-        All study records are safely synced to your account in Firebase Firestore
+        All study & prayer records are safely isolated under users/{userId} in Firestore
       </div>
     </div>
   </div>
@@ -149,17 +153,23 @@ export function generateSingleFileHtml(): string {
 
       <div class="nav-tabs">
         <button id="tabRoutine" class="tab-btn active" onclick="switchTab('routine')">Today's Routine</button>
+        <button id="tabSalah" class="tab-btn" onclick="switchTab('salah')">
+          <span>🕌 5-Time Salah</span>
+          <span id="salahBadge" style="background:#059669; color:white; font-size:10px; padding:1px 6px; border-radius:99px;">0/5</span>
+        </button>
         <button id="tabHistory" class="tab-btn" onclick="switchTab('history')">Study History</button>
       </div>
 
       <div class="header-actions">
         <button class="btn btn-primary" onclick="openAddTaskModal()">+ Add Task</button>
-        <button class="btn btn-danger" onclick="startNewDay()">Start New Day</button>
+        <button class="btn btn-secondary" onclick="openManageFolderModal()">📁 Manage Folders</button>
+        <button class="btn btn-secondary" onclick="startNewDay()">Start New Day</button>
         
-        <!-- User Profile and Logout -->
+        <!-- User Profile and Reset -->
         <div class="user-profile">
           <div class="user-avatar" id="userAvatar">U</div>
           <span id="userName" style="font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Student</span>
+          <button onclick="confirmResetAllData()" class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" title="Reset all data back to zero">Reset Data</button>
           <button onclick="handleLogout()" class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;">Logout</button>
         </div>
       </div>
@@ -178,44 +188,53 @@ export function generateSingleFileHtml(): string {
             <span class="mono" id="totalTarget" style="font-size: 16px; font-weight: 700;">0h 0m</span>
           </div>
         </div>
-        <div class="progress-bar-bg">
-          <div id="barAcademic" class="progress-fill" style="background: var(--academic); width: 0%;"></div>
-          <div id="barAdmission" class="progress-fill" style="background: var(--admission); width: 0%;"></div>
-          <div id="barEnglish" class="progress-fill" style="background: var(--english); width: 0%;"></div>
+        <div class="progress-bar-bg" id="dynamicProgressBar">
+          <!-- Filled dynamically -->
         </div>
       </div>
 
-      <div class="folder-grid">
-        <div class="folder-card" style="border-top: 3px solid var(--academic);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span class="badge badge-academic">Academic</span>
-            <span id="acadPct" class="mono" style="font-size:12px; font-weight:700;">0%</span>
-          </div>
-          <div class="mono" id="acadHours" style="font-size:24px; font-weight:800; margin-bottom:4px;">0h 0m</div>
-          <div style="color:var(--text-muted); font-size:12px;" id="acadTarget">Target: 0m</div>
-        </div>
-
-        <div class="folder-card" style="border-top: 3px solid var(--admission);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span class="badge badge-admission">Admission</span>
-            <span id="admPct" class="mono" style="font-size:12px; font-weight:700;">0%</span>
-          </div>
-          <div class="mono" id="admHours" style="font-size:24px; font-weight:800; margin-bottom:4px;">0h 0m</div>
-          <div style="color:var(--text-muted); font-size:12px;" id="admTarget">Target: 0m</div>
-        </div>
-
-        <div class="folder-card" style="border-top: 3px solid var(--english);">
-          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span class="badge badge-english">English Learning</span>
-            <span id="engPct" class="mono" style="font-size:12px; font-weight:700;">0%</span>
-          </div>
-          <div class="mono" id="engHours" style="font-size:24px; font-weight:800; margin-bottom:4px;">0h 0m</div>
-          <div style="color:var(--text-muted); font-size:12px;" id="engTarget">Target: 0m</div>
-        </div>
+      <div class="folder-grid" id="folderCardsContainer">
+        <!-- Filled dynamically -->
       </div>
 
-      <h3 style="margin-bottom: 14px; font-size: 17px; font-weight: 700;">Daily Study Tasks</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px;">
+        <h3 style="font-size: 17px; font-weight: 700;">Daily Study Tasks</h3>
+        <button class="btn btn-primary" onclick="openAddTaskModal()" style="font-size:12px; padding:6px 12px;">+ Add New Task</button>
+      </div>
       <div id="tasksList"></div>
+    </div>
+
+    <!-- Salah View -->
+    <div id="viewSalah" style="display: none;">
+      <div class="hero-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="font-size: 12px; color: #34d399; font-weight: 700; text-transform: uppercase;">Daily Spiritual Routine</div>
+            <h2 style="font-size: 26px; font-weight: 800; margin-top: 2px;">5-Time Daily Salah Tracker</h2>
+            <p style="color: var(--text-muted); font-size: 13px;">Stay consistent with your daily prayers alongside focused study hours.</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-secondary" onclick="changeSalahDate(-1)">◀ Prev Day</button>
+            <input type="date" id="salahDateInput" onchange="onSalahDateChange(this.value)" style="background:#0f172a; color:white; border:1px solid var(--surface-border); border-radius:8px; padding:6px 10px; font-size:13px;">
+            <button class="btn btn-secondary" onclick="changeSalahDate(1)">Next Day ▶</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px;">
+          <div style="background:#0f172a; padding:16px; border-radius:14px; border:1px solid var(--surface-border);">
+            <div style="color:var(--text-muted); font-size:12px;">Completed Today</div>
+            <div class="mono" id="salahCompletedRatio" style="font-size:26px; font-weight:800; color:#34d399;">0 / 5</div>
+          </div>
+          <div style="background:#0f172a; padding:16px; border-radius:14px; border:1px solid var(--surface-border);">
+            <div style="color:var(--text-muted); font-size:12px;">Completion Rate</div>
+            <div class="mono" id="salahPercentage" style="font-size:26px; font-weight:800; color:#818cf8;">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="salahListContainer" style="max-width: 720px; margin: 0 auto;">
+        <!-- Filled dynamically -->
+      </div>
     </div>
 
     <!-- History View -->
@@ -265,15 +284,13 @@ export function generateSingleFileHtml(): string {
       <h3 style="margin-bottom: 16px;">Add Daily Target Task</h3>
       <div class="input-group">
         <label>Primary Folder / Category</label>
-        <select id="taskFolder">
-          <option value="academic">Academic (Campus Studies)</option>
-          <option value="admission">Admission (Competitive Prep)</option>
-          <option value="english">English Learning</option>
+        <select id="taskFolder" onchange="onFolderSelectChanged(this.value)">
         </select>
       </div>
       <div class="input-group">
         <label>Subject / Course Name</label>
         <input type="text" id="taskSubject" placeholder="e.g., Organic Chemistry, IELTS Speaking">
+        <div id="subjectSuggestionChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;"></div>
       </div>
       <div class="input-group">
         <label>Topics / Goals</label>
@@ -286,6 +303,28 @@ export function generateSingleFileHtml(): string {
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="saveTask()">Save Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Folders Modal -->
+  <div id="folderModal" class="modal-overlay">
+    <div class="modal-box">
+      <h3 style="margin-bottom: 16px;">Manage Folders & Subjects</h3>
+      <div style="margin-bottom: 16px;">
+        <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Add New Custom Folder</label>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="newFolderName" placeholder="Folder Name (e.g. Research, Programming)" style="flex:1; padding:10px 14px; background:#0f172a; border:1px solid var(--surface-border); border-radius:10px; color:white; font-size:14px;">
+          <button class="btn btn-primary" onclick="addNewFolder()">Create</button>
+        </div>
+      </div>
+
+      <div style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">Existing Folders</div>
+      <div id="manageFoldersList" style="display:flex; flex-direction:column; gap:10px;">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:20px;">
+        <button class="btn btn-secondary" onclick="closeFolderModal()">Close</button>
       </div>
     </div>
   </div>
@@ -311,19 +350,36 @@ export function generateSingleFileHtml(): string {
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
+    const SALAH_PRAYERS = [
+      { id: 'fajr', name: 'Fajr', time: 'Dawn / Before Sunrise', color: '#6366f1' },
+      { id: 'dhuhr', name: 'Dhuhr', time: 'Midday / After Zenith', color: '#f59e0b' },
+      { id: 'asr', name: 'Asr', time: 'Late Afternoon', color: '#d97706' },
+      { id: 'maghrib', name: 'Maghrib', time: 'Just After Sunset', color: '#ec4899' },
+      { id: 'isha', name: 'Isha', time: 'Night', color: '#8b5cf6' }
+    ];
+
+    const DEFAULT_FOLDERS = [
+      { id: 'academic', name: 'Academic (Campus Studies)', color: '#4F46E5', subjects: ['Data Structures', 'Database Systems', 'Algorithms'] },
+      { id: 'admission', name: 'Admission', color: '#D97706', subjects: ['Math Drill', 'Physics Mock', 'Chemistry'] },
+      { id: 'english', name: 'English Learning', color: '#059669', subjects: ['IELTS Speaking', 'Vocabulary', 'Writing Task 2'] }
+    ];
+
     let currentUser = null;
     let unsubscribeFirestore = null;
 
     let appData = {
+      folders: JSON.parse(JSON.stringify(DEFAULT_FOLDERS)),
       tasks: [
         { id: '1', folder: 'academic', subject: 'Data Structures', topics: 'Binary Search Trees & Traversal', targetMins: 90, actualMins: 45, completed: false },
         { id: '2', folder: 'admission', subject: 'Math Drill', topics: 'Calculus derivatives mock tests', targetMins: 60, actualMins: 60, completed: true },
         { id: '3', folder: 'english', subject: 'Vocabulary & IELTS', topics: 'Academic Collocations & Speaking Part 2', targetMins: 45, actualMins: 30, completed: false }
       ],
-      dateRecords: {}
+      dateRecords: {},
+      salahRecords: {}
     };
 
     let selectedDateKey = new Date().toISOString().slice(0, 10);
+    let selectedSalahDate = new Date().toISOString().slice(0, 10);
     let currentCalDate = new Date();
 
     // DOM references
@@ -339,8 +395,22 @@ export function generateSingleFileHtml(): string {
       try {
         await signInWithPopup(auth, provider);
       } catch (err) {
-        alert('Google Sign-In Error: ' + err.message);
+        if (err.code === 'auth/unauthorized-domain' || (err.message && err.message.includes('unauthorized-domain'))) {
+          alert('Firebase Authorized Domain Required:\\n\\nDomain: ' + window.location.hostname + '\\n\\nAdd this domain in Firebase Console (Authentication > Settings > Authorized domains), or click "Continue in Local Mode" to use FocusTrack immediately without login.');
+        } else {
+          alert('Google Sign-In Error: ' + err.message);
+        }
       }
+    };
+
+    // Guest / Local Mode button event
+    document.getElementById('guestLoginBtn').onclick = () => {
+      currentUser = { uid: 'guest_student', displayName: 'Student (Local Mode)', email: 'student@local' };
+      authScreen.style.display = 'none';
+      mainApp.style.display = 'block';
+      userNameEl.innerText = 'Student (Local Mode)';
+      syncIndicator.innerText = '💾 Local Storage';
+      render();
     };
 
     window.handleLogout = async () => {
@@ -371,7 +441,7 @@ export function generateSingleFileHtml(): string {
       }
     });
 
-    // Real-time Firestore sync with users/{userId}/studyData
+    // Real-time Firestore sync with users/{userId}/studyData/main
     function listenToUserStudyData(userId) {
       if (unsubscribeFirestore) unsubscribeFirestore();
 
@@ -379,11 +449,13 @@ export function generateSingleFileHtml(): string {
       unsubscribeFirestore = onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           const data = snapshot.data();
+          if (data.folders && Array.isArray(data.folders) && data.folders.length > 0) appData.folders = data.folders;
           if (data.tasks) appData.tasks = data.tasks;
           if (data.dateRecords) appData.dateRecords = data.dateRecords;
+          if (data.salahRecords) appData.salahRecords = data.salahRecords;
           syncIndicator.innerText = '☁️ Firestore Synced';
         } else {
-          // Initialize user's first document
+          // Initialize fresh user onboarding
           saveToFirestore();
         }
         render();
@@ -399,8 +471,10 @@ export function generateSingleFileHtml(): string {
       const docRef = doc(db, 'users', currentUser.uid, 'studyData', 'main');
       try {
         await setDoc(docRef, {
+          folders: appData.folders,
           tasks: appData.tasks,
           dateRecords: appData.dateRecords,
+          salahRecords: appData.salahRecords,
           lastUpdated: new Date().toISOString(),
           userEmail: currentUser.email,
           displayName: currentUser.displayName
@@ -420,20 +494,22 @@ export function generateSingleFileHtml(): string {
 
     window.switchTab = (tab) => {
       document.getElementById('tabRoutine').classList.toggle('active', tab === 'routine');
+      document.getElementById('tabSalah').classList.toggle('active', tab === 'salah');
       document.getElementById('tabHistory').classList.toggle('active', tab === 'history');
       document.getElementById('viewRoutine').style.display = tab === 'routine' ? 'block' : 'none';
+      document.getElementById('viewSalah').style.display = tab === 'salah' ? 'block' : 'none';
       document.getElementById('viewHistory').style.display = tab === 'history' ? 'block' : 'none';
+      if (tab === 'salah') renderSalah();
       if (tab === 'history') renderHistory();
     };
 
     function render() {
       // Sync today's totals
       let totalAct = 0, totalTgt = 0;
-      let fData = {
-        academic: { act: 0, tgt: 0 },
-        admission: { act: 0, tgt: 0 },
-        english: { act: 0, tgt: 0 }
-      };
+      let fData = {};
+      appData.folders.forEach(f => {
+        fData[f.id] = { name: f.name, color: f.color, act: 0, tgt: 0, subjects: f.subjects || [] };
+      });
 
       appData.tasks.forEach(t => {
         totalAct += t.actualMins;
@@ -447,53 +523,84 @@ export function generateSingleFileHtml(): string {
       document.getElementById('totalActual').innerText = formatTime(totalAct);
       document.getElementById('totalTarget').innerText = formatTime(totalTgt);
 
+      // Render Dynamic Progress Bar
       const baseTgt = Math.max(1, totalTgt);
-      document.getElementById('barAcademic').style.width = ((fData.academic.act / baseTgt) * 100) + '%';
-      document.getElementById('barAdmission').style.width = ((fData.admission.act / baseTgt) * 100) + '%';
-      document.getElementById('barEnglish').style.width = ((fData.english.act / baseTgt) * 100) + '%';
+      const progEl = document.getElementById('dynamicProgressBar');
+      progEl.innerHTML = '';
+      appData.folders.forEach(f => {
+        const d = fData[f.id];
+        if (d && d.act > 0) {
+          const w = Math.min(100, (d.act / baseTgt) * 100);
+          progEl.innerHTML += \`<div class="progress-fill" style="background: \${f.color}; width: \${w}%;"></div>\`;
+        }
+      });
 
       // Folder cards
-      ['academic', 'admission', 'english'].forEach(key => {
-        const pre = key.slice(0, 3);
-        const f = fData[key];
-        const pct = f.tgt > 0 ? Math.min(100, Math.round((f.act / f.tgt) * 100)) : 0;
-        document.getElementById(pre + 'Hours').innerText = formatTime(f.act);
-        document.getElementById(pre + 'Target').innerText = 'Target: ' + formatTime(f.tgt);
-        document.getElementById(pre + 'Pct').innerText = pct + '%';
+      const fCont = document.getElementById('folderCardsContainer');
+      fCont.innerHTML = '';
+      appData.folders.forEach(f => {
+        const d = fData[f.id] || { act: 0, tgt: 0, subjects: [] };
+        const pct = d.tgt > 0 ? Math.min(100, Math.round((d.act / d.tgt) * 100)) : 0;
+        const card = document.createElement('div');
+        card.className = 'folder-card';
+        card.style.borderTop = '3px solid ' + f.color;
+        
+        let subjChips = (f.subjects || []).map(s => \`<span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; font-size:11px; color:var(--text-muted);">\${s}</span>\`).join(' ');
+
+        card.innerHTML = \`
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+            <span class="badge" style="background: \${f.color}26; color: \${f.color}; border: 1px solid \${f.color}66;">\${f.name}</span>
+            <span class="mono" style="font-size:12px; font-weight:700;">\${pct}%</span>
+          </div>
+          <div class="mono" style="font-size:24px; font-weight:800; margin-bottom:4px;">\${formatTime(d.act)}</div>
+          <div style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">Target: \${formatTime(d.tgt)}</div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:8px;">\${subjChips}</div>
+        \`;
+        fCont.appendChild(card);
       });
 
       // Render tasks
       const list = document.getElementById('tasksList');
       list.innerHTML = '';
-      appData.tasks.forEach((t, i) => {
-        const item = document.createElement('div');
-        item.className = 'task-item';
-        item.innerHTML = \`
-          <div class="task-left">
-            <input type="checkbox" class="checkbox" \${t.completed ? 'checked' : ''} onchange="toggleTask(\${i})">
-            <div>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="\${t.completed ? 'completed-text' : ''}" style="font-weight:700;">\${t.subject}</span>
-                <span class="badge badge-\${t.folder}">\${t.folder}</span>
+      if (appData.tasks.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); background:var(--surface); border-radius:14px; border:1px solid var(--surface-border);">No study tasks scheduled yet. Click "+ Add Task" to plan your morning!</div>';
+      } else {
+        appData.tasks.forEach((t, i) => {
+          const folderObj = appData.folders.find(f => f.id === t.folder) || { name: t.folder, color: '#6366f1' };
+          const item = document.createElement('div');
+          item.className = 'task-item';
+          item.innerHTML = \`
+            <div class="task-left">
+              <input type="checkbox" class="checkbox" \${t.completed ? 'checked' : ''} onchange="toggleTask(\${i})">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="\${t.completed ? 'completed-text' : ''}" style="font-weight:700;">\${t.subject}</span>
+                  <span class="badge" style="background:\${folderObj.color}22; color:\${folderObj.color}; border:1px solid \${folderObj.color}55;">\${folderObj.name}</span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">\${t.topics || 'Routine study session'}</div>
               </div>
-              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">\${t.topics || 'Routine study session'}</div>
             </div>
-          </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="text-align:right;">
-              <span class="mono" style="font-weight:700; font-size:14px;">\${formatTime(t.actualMins)}</span>
-              <span style="font-size:11px; color:var(--text-muted);"> / \${formatTime(t.targetMins)}</span>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="text-align:right;">
+                <span class="mono" style="font-weight:700; font-size:14px;">\${formatTime(t.actualMins)}</span>
+                <span style="font-size:11px; color:var(--text-muted);"> / \${formatTime(t.targetMins)}</span>
+              </div>
+              <button class="btn btn-secondary" onclick="addTime(\${i}, 15)">+15m</button>
+              <button class="btn btn-secondary" onclick="addTime(\${i}, 30)">+30m</button>
+              <button class="btn btn-danger" onclick="deleteTask(\${i})">✕</button>
             </div>
-            <button class="btn btn-secondary" onclick="addTime(\${i}, 15)">+15m</button>
-            <button class="btn btn-secondary" onclick="addTime(\${i}, 30)">+30m</button>
-            <button class="btn btn-danger" onclick="deleteTask(\${i})">✕</button>
-          </div>
-        \`;
-        list.appendChild(item);
-      });
+          \`;
+          list.appendChild(item);
+        });
+      }
+
+      // Update Salah Badge
+      const today = new Date().toISOString().slice(0, 10);
+      const todaySalah = appData.salahRecords[today] || {};
+      const completedSalahCount = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter(p => todaySalah[p]).length;
+      document.getElementById('salahBadge').innerText = completedSalahCount + '/5';
 
       // Update today's record in history
-      const today = new Date().toISOString().slice(0, 10);
       appData.dateRecords[today] = {
         date: today,
         actualMins: totalAct,
@@ -502,15 +609,72 @@ export function generateSingleFileHtml(): string {
       };
     }
 
+    // Salah Rendering
+    function renderSalah() {
+      document.getElementById('salahDateInput').value = selectedSalahDate;
+      const rec = appData.salahRecords[selectedSalahDate] || { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false };
+      const completedCount = ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha'].filter(p => rec[p]).length;
+      
+      document.getElementById('salahCompletedRatio').innerText = completedCount + ' / 5';
+      document.getElementById('salahPercentage').innerText = Math.round((completedCount / 5) * 100) + '%';
+
+      const cont = document.getElementById('salahListContainer');
+      cont.innerHTML = '';
+
+      SALAH_PRAYERS.forEach(p => {
+        const isDone = !!rec[p.id];
+        const card = document.createElement('div');
+        card.className = 'salah-card' + (isDone ? ' completed' : '');
+        card.innerHTML = \`
+          <div style="display:flex; align-items:center; gap:14px;">
+            <button class="salah-check-btn \${isDone ? 'checked' : ''}" onclick="toggleSalah('\${p.id}')">
+              \${isDone ? '✓' : ''}
+            </button>
+            <div>
+              <div style="font-weight:800; font-size:16px; display:flex; align-items:center; gap:8px;">
+                <span>\${p.name}</span>
+                \${isDone ? '<span style="font-size:11px; background:#10b98122; color:#10b981; padding:2px 8px; border-radius:99px; font-weight:700;">Completed</span>' : ''}
+              </div>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">\${p.time}</div>
+            </div>
+          </div>
+          <div style="font-size:12px; font-weight:600; color:\${p.color};">Daily Fard</div>
+        \`;
+        cont.appendChild(card);
+      });
+    }
+
+    window.toggleSalah = (prayerId) => {
+      if (!appData.salahRecords[selectedSalahDate]) {
+        appData.salahRecords[selectedSalahDate] = { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false };
+      }
+      appData.salahRecords[selectedSalahDate][prayerId] = !appData.salahRecords[selectedSalahDate][prayerId];
+      renderSalah();
+      render();
+      saveToFirestore();
+    };
+
+    window.changeSalahDate = (delta) => {
+      const d = new Date(selectedSalahDate);
+      d.setDate(d.getDate() + delta);
+      selectedSalahDate = d.toISOString().slice(0, 10);
+      renderSalah();
+    };
+
+    window.onSalahDateChange = (val) => {
+      if (val) {
+        selectedSalahDate = val;
+        renderSalah();
+      }
+    };
+
     function renderHistory() {
-      // Aggregate stats
       let allTime = 0;
       Object.values(appData.dateRecords).forEach(r => allTime += (r.actualMins || 0));
       document.getElementById('allTimeHours').innerText = formatTime(allTime);
       document.getElementById('weekHours').innerText = formatTime(Math.round(allTime * 0.4));
       document.getElementById('monthHours').innerText = formatTime(allTime);
 
-      // Render calendar
       const y = currentCalDate.getFullYear();
       const m = currentCalDate.getMonth();
       const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -547,11 +711,12 @@ export function generateSingleFileHtml(): string {
         document.getElementById('selectedDateHours').innerText = formatTime(selRec.actualMins);
         tasksEl.innerHTML = '';
         (selRec.tasks || []).forEach(t => {
+          const folderObj = appData.folders.find(f => f.id === t.folder) || { name: t.folder, color: '#6366f1' };
           tasksEl.innerHTML += \`
             <div style="background:#0f172a; padding:12px; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
               <div>
                 <span style="font-weight:700;">\${t.subject}</span>
-                <span class="badge badge-\${t.folder}" style="margin-left:6px;">\${t.folder}</span>
+                <span class="badge" style="background:\${folderObj.color}22; color:\${folderObj.color}; margin-left:6px;">\${folderObj.name}</span>
               </div>
               <span class="mono" style="font-weight:700;">\${formatTime(t.actualMins)}</span>
             </div>
@@ -584,11 +749,24 @@ export function generateSingleFileHtml(): string {
     };
 
     window.startNewDay = () => {
-      if (confirm('Start a fresh day? This will archive today\\'s study hours and reset today to 0 while keeping your subjects.')) {
+      if (confirm('Start a fresh day? This will archive today\\'s study hours and reset today\\'s active counters while keeping your saved folders & subjects.')) {
         render();
         appData.tasks.forEach(t => { t.actualMins = 0; t.completed = false; });
         render();
         saveToFirestore();
+      }
+    };
+
+    window.confirmResetAllData = async () => {
+      if (confirm('⚠️ RESET ALL DATA WARNING:\\n\\nThis will reset all your folders, daily study logs, and Salah records back to initial defaults under your account.\\n\\nAre you sure you want to proceed?')) {
+        appData.folders = JSON.parse(JSON.stringify(DEFAULT_FOLDERS));
+        appData.tasks = [];
+        appData.dateRecords = {};
+        appData.salahRecords = {};
+        render();
+        renderSalah();
+        await saveToFirestore();
+        alert('All study and prayer data has been reset to defaults.');
       }
     };
 
@@ -597,7 +775,34 @@ export function generateSingleFileHtml(): string {
       renderHistory();
     };
 
-    window.openAddTaskModal = () => { document.getElementById('taskModal').style.display = 'flex'; };
+    window.openAddTaskModal = () => {
+      const sel = document.getElementById('taskFolder');
+      sel.innerHTML = '';
+      appData.folders.forEach(f => {
+        sel.innerHTML += \`<option value="\${f.id}">\${f.name}</option>\`;
+      });
+      if (appData.folders.length > 0) {
+        onFolderSelectChanged(appData.folders[0].id);
+      }
+      document.getElementById('taskModal').style.display = 'flex';
+    };
+
+    window.onFolderSelectChanged = (folderId) => {
+      const f = appData.folders.find(x => x.id === folderId);
+      const chipsEl = document.getElementById('subjectSuggestionChips');
+      chipsEl.innerHTML = '';
+      if (f && f.subjects && f.subjects.length > 0) {
+        f.subjects.forEach(s => {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.innerText = '+ ' + s;
+          chip.style.cssText = 'background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); color:#818cf8; border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer;';
+          chip.onclick = () => { document.getElementById('taskSubject').value = s; };
+          chipsEl.appendChild(chip);
+        });
+      }
+    };
+
     window.closeModal = () => { document.getElementById('taskModal').style.display = 'none'; };
 
     window.saveTask = () => {
@@ -605,10 +810,99 @@ export function generateSingleFileHtml(): string {
       const subject = document.getElementById('taskSubject').value.trim();
       const topics = document.getElementById('taskTopics').value.trim();
       const targetMins = parseInt(document.getElementById('taskTargetMins').value, 10) || 60;
-      if (!subject) return;
+      if (!subject) {
+        alert('Please enter a subject name');
+        return;
+      }
 
       appData.tasks.unshift({ id: Date.now().toString(), folder, subject, topics, targetMins, actualMins: 0, completed: false });
       window.closeModal();
+      render();
+      saveToFirestore();
+    };
+
+    // Folder Management
+    window.openManageFolderModal = () => {
+      renderFolderManageList();
+      document.getElementById('folderModal').style.display = 'flex';
+    };
+
+    window.closeFolderModal = () => {
+      document.getElementById('folderModal').style.display = 'none';
+      render();
+    };
+
+    function renderFolderManageList() {
+      const cont = document.getElementById('manageFoldersList');
+      cont.innerHTML = '';
+      appData.folders.forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.style.cssText = 'background:#0f172a; border:1px solid var(--surface-border); border-radius:12px; padding:12px;';
+        
+        let subChips = (f.subjects || []).map((s, si) => \`
+          <span style="display:inline-flex; align-items:center; gap:4px; background:rgba(255,255,255,0.08); padding:3px 8px; border-radius:6px; font-size:11px;">
+            \${s}
+            <button onclick="removeSubjectFromFolder(\${idx}, \${si})" style="background:none; border:none; color:#ef4444; cursor:pointer; font-size:12px;">×</button>
+          </span>
+        \`).join(' ');
+
+        item.innerHTML = \`
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-weight:700; color:\${f.color}; font-size:14px;">\${f.name}</div>
+            \${appData.folders.length > 1 ? \`<button class="btn btn-danger" onclick="deleteFolder(\${idx})" style="padding:2px 8px; font-size:11px;">Delete Folder</button>\` : ''}
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">\${subChips}</div>
+          <div style="display:flex; gap:6px;">
+            <input type="text" id="addSubjectInput_\${idx}" placeholder="+ Add subject/course" style="flex:1; padding:6px 10px; background:var(--surface); border:1px solid var(--surface-border); border-radius:8px; color:white; font-size:12px;">
+            <button class="btn btn-secondary" onclick="addSubjectToFolder(\${idx})" style="padding:6px 10px; font-size:12px;">Add</button>
+          </div>
+        \`;
+        cont.appendChild(item);
+      });
+    }
+
+    window.addNewFolder = () => {
+      const input = document.getElementById('newFolderName');
+      const name = input.value.trim();
+      if (!name) return;
+      const colors = ['#4F46E5', '#D97706', '#059669', '#7C3AED', '#DB2777', '#0284C7', '#EA580C'];
+      const color = colors[appData.folders.length % colors.length];
+      appData.folders.push({
+        id: 'folder_' + Date.now(),
+        name,
+        color,
+        subjects: []
+      });
+      input.value = '';
+      renderFolderManageList();
+      render();
+      saveToFirestore();
+    };
+
+    window.deleteFolder = (idx) => {
+      if (confirm('Delete folder "' + appData.folders[idx].name + '" and its subjects?')) {
+        appData.folders.splice(idx, 1);
+        renderFolderManageList();
+        render();
+        saveToFirestore();
+      }
+    };
+
+    window.addSubjectToFolder = (fIdx) => {
+      const input = document.getElementById('addSubjectInput_' + fIdx);
+      const val = input.value.trim();
+      if (!val) return;
+      if (!appData.folders[fIdx].subjects) appData.folders[fIdx].subjects = [];
+      appData.folders[fIdx].subjects.push(val);
+      input.value = '';
+      renderFolderManageList();
+      render();
+      saveToFirestore();
+    };
+
+    window.removeSubjectFromFolder = (fIdx, sIdx) => {
+      appData.folders[fIdx].subjects.splice(sIdx, 1);
+      renderFolderManageList();
       render();
       saveToFirestore();
     };

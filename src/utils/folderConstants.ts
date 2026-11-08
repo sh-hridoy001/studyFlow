@@ -1,45 +1,79 @@
-import { FolderDefinition, PrimaryFolderId } from '../types';
+import { FolderDefinition } from '../types';
 
-export const PRIMARY_FOLDERS: Record<PrimaryFolderId, FolderDefinition> = {
-  academic: {
+export const FOLDER_COLOR_PRESETS = [
+  { name: 'Indigo', color: '#4F46E5', lightBg: 'bg-indigo-50/70', darkBg: 'dark:bg-indigo-950/30', borderClass: 'border-indigo-200 dark:border-indigo-800/60', badgeClass: 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800' },
+  { name: 'Amber', color: '#D97706', lightBg: 'bg-amber-50/70', darkBg: 'dark:bg-amber-950/30', borderClass: 'border-amber-200 dark:border-amber-800/60', badgeClass: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800' },
+  { name: 'Emerald', color: '#059669', lightBg: 'bg-emerald-50/70', darkBg: 'dark:bg-emerald-950/30', borderClass: 'border-emerald-200 dark:border-emerald-800/60', badgeClass: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800' },
+  { name: 'Violet', color: '#7C3AED', lightBg: 'bg-purple-50/70', darkBg: 'dark:bg-purple-950/30', borderClass: 'border-purple-200 dark:border-purple-800/60', badgeClass: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800' },
+  { name: 'Rose', color: '#E11D48', lightBg: 'bg-rose-50/70', darkBg: 'dark:bg-rose-950/30', borderClass: 'border-rose-200 dark:border-rose-800/60', badgeClass: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800' },
+  { name: 'Cyan', color: '#0891B2', lightBg: 'bg-cyan-50/70', darkBg: 'dark:bg-cyan-950/30', borderClass: 'border-cyan-200 dark:border-cyan-800/60', badgeClass: 'text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950/60 border-cyan-200 dark:border-cyan-800' },
+  { name: 'Blue', color: '#2563EB', lightBg: 'bg-blue-50/70', darkBg: 'dark:bg-blue-950/30', borderClass: 'border-blue-200 dark:border-blue-800/60', badgeClass: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800' },
+  { name: 'Fuchsia', color: '#C026D3', lightBg: 'bg-fuchsia-50/70', darkBg: 'dark:bg-fuchsia-950/30', borderClass: 'border-fuchsia-200 dark:border-fuchsia-800/60', badgeClass: 'text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-50 dark:bg-fuchsia-950/60 border-fuchsia-200 dark:border-fuchsia-800' },
+];
+
+export const DEFAULT_DYNAMIC_FOLDERS: FolderDefinition[] = [
+  {
     id: 'academic',
     name: 'Academic (Campus Studies)',
     subtitle: 'University coursework, lectures, lab reports & semester exams',
-    color: '#4F46E5', // Indigo
+    color: '#4F46E5',
     lightBg: 'bg-indigo-50/70',
     darkBg: 'dark:bg-indigo-950/30',
     borderClass: 'border-indigo-200 dark:border-indigo-800/60',
     badgeClass: 'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
     icon: 'academic',
+    subjects: [
+      'Computer Systems Architecture',
+      'Linear Algebra & Optimization',
+      'Algorithms & Data Structures',
+      'Operating Systems',
+    ],
   },
-  admission: {
+  {
     id: 'admission',
     name: 'Admission',
     subtitle: 'Competitive exams, GRE/SAT/GMAT prep, SOPs & admission test practice',
-    color: '#D97706', // Amber
+    color: '#D97706',
     lightBg: 'bg-amber-50/70',
     darkBg: 'dark:bg-amber-950/30',
     borderClass: 'border-amber-200 dark:border-amber-800/60',
     badgeClass: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800',
     icon: 'admission',
+    subjects: [
+      'Quantitative Reasoning',
+      'Verbal Strategy & Logic',
+      'Mock Exam Practice',
+      'Analytical Writing',
+    ],
   },
-  english: {
+  {
     id: 'english',
     name: 'English Learning',
     subtitle: 'IELTS/TOEFL preparation, speaking fluency, vocabulary & grammar drills',
-    color: '#059669', // Emerald
+    color: '#059669',
     lightBg: 'bg-emerald-50/70',
     darkBg: 'dark:bg-emerald-950/30',
     borderClass: 'border-emerald-200 dark:border-emerald-800/60',
     badgeClass: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800',
     icon: 'english',
+    subjects: [
+      'IELTS Academic Reading',
+      'Speaking & Active Vocabulary',
+      'Writing Task 2',
+      'Listening Drills',
+    ],
   },
-};
+];
+
+export const PRIMARY_FOLDERS: Record<string, FolderDefinition> = DEFAULT_DYNAMIC_FOLDERS.reduce(
+  (acc, f) => ({ ...acc, [f.id]: f }),
+  {}
+);
 
 export const INITIAL_DAILY_TASKS = [
   {
     id: 'task-acad-1',
-    folderId: 'academic' as PrimaryFolderId,
+    folderId: 'academic',
     subjectName: 'Computer Systems Architecture',
     topics: 'Pipelining hazards & branch prediction simulation',
     targetMinutes: 120, // 2h
@@ -50,7 +84,7 @@ export const INITIAL_DAILY_TASKS = [
   },
   {
     id: 'task-acad-2',
-    folderId: 'academic' as PrimaryFolderId,
+    folderId: 'academic',
     subjectName: 'Linear Algebra & Optimization',
     topics: 'Singular Value Decomposition (SVD) practice proofs',
     targetMinutes: 90,
@@ -61,7 +95,7 @@ export const INITIAL_DAILY_TASKS = [
   },
   {
     id: 'task-adm-1',
-    folderId: 'admission' as PrimaryFolderId,
+    folderId: 'admission',
     subjectName: 'Quantitative Reasoning',
     topics: 'Permutations, combinations & probability advanced drills',
     targetMinutes: 90,
@@ -72,7 +106,7 @@ export const INITIAL_DAILY_TASKS = [
   },
   {
     id: 'task-adm-2',
-    folderId: 'admission' as PrimaryFolderId,
+    folderId: 'admission',
     subjectName: 'Verbal Strategy & Logic',
     topics: 'Text completion double/triple blanks & analytical writing template',
     targetMinutes: 60,
@@ -82,7 +116,7 @@ export const INITIAL_DAILY_TASKS = [
   },
   {
     id: 'task-eng-1',
-    folderId: 'english' as PrimaryFolderId,
+    folderId: 'english',
     subjectName: 'IELTS Academic Reading',
     topics: 'True/False/Not Given passage drills & speed skimming',
     targetMinutes: 60,
@@ -93,7 +127,7 @@ export const INITIAL_DAILY_TASKS = [
   },
   {
     id: 'task-eng-2',
-    folderId: 'english' as PrimaryFolderId,
+    folderId: 'english',
     subjectName: 'Speaking & Active Vocabulary',
     topics: '30-minute podcast shadowing + 20 C1 collocations flashcards',
     targetMinutes: 45,

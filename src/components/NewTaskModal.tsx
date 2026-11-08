@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useStudy } from '../context/StudyContext';
-import { DailyTask, PrimaryFolderId } from '../types';
-import { PRIMARY_FOLDERS } from '../utils/folderConstants';
-import { X, Calendar } from 'lucide-react';
+import { DailyTask } from '../types';
+import { X, Calendar, Plus } from 'lucide-react';
 
 interface NewTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultFolderId?: PrimaryFolderId;
+  defaultFolderId?: string;
   editingTask?: DailyTask | null;
 }
 
@@ -17,9 +16,11 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   defaultFolderId,
   editingTask,
 }) => {
-  const { addTask, updateTask } = useStudy();
+  const { addTask, updateTask, folders } = useStudy();
 
-  const [folderId, setFolderId] = useState<PrimaryFolderId>(defaultFolderId || 'academic');
+  const [folderId, setFolderId] = useState<string>(
+    defaultFolderId || (folders[0]?.id || 'academic')
+  );
   const [subjectName, setSubjectName] = useState('');
   const [topics, setTopics] = useState('');
   const [hours, setHours] = useState('1');
@@ -35,16 +36,18 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       setMinutes((editingTask.targetMinutes % 60).toString());
       setNotes(editingTask.notes || '');
     } else {
-      setFolderId(defaultFolderId || 'academic');
+      setFolderId(defaultFolderId || (folders[0]?.id || 'academic'));
       setSubjectName('');
       setTopics('');
       setHours('1');
       setMinutes('30');
       setNotes('');
     }
-  }, [editingTask, defaultFolderId, isOpen]);
+  }, [editingTask, defaultFolderId, isOpen, folders]);
 
   if (!isOpen) return null;
+
+  const currentFolder = folders.find((f) => f.id === folderId) || folders[0];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +77,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative my-8 animate-in fade-in duration-200">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg"
@@ -98,31 +101,28 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
           {/* 1. Folder Selector */}
           <div>
             <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Select Primary Folder
+              Select Folder
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fKey) => {
-                const folder = PRIMARY_FOLDERS[fKey];
-                const isSelected = folderId === fKey;
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
+              {folders.map((folder) => {
+                const isSelected = folderId === folder.id;
                 return (
                   <button
-                    key={fKey}
+                    key={folder.id}
                     type="button"
-                    onClick={() => setFolderId(fKey)}
+                    onClick={() => setFolderId(folder.id)}
                     className={`p-2.5 rounded-xl text-left border transition-all ${
                       isSelected
                         ? 'ring-2 ring-indigo-500 border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40'
                         : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                     }`}
                   >
-                    <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5">
+                    <div className="flex items-center gap-1.5 font-bold text-xs mb-0.5 truncate">
                       <span
-                        className="w-2 h-2 rounded-full"
+                        className="w-2 h-2 rounded-full shrink-0"
                         style={{ backgroundColor: folder.color }}
                       />
-                      <span>
-                        {fKey === 'academic' ? 'Academic' : fKey === 'admission' ? 'Admission' : 'English'}
-                      </span>
+                      <span className="truncate">{folder.name}</span>
                     </div>
                     <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">
                       {folder.subtitle}
@@ -133,11 +133,34 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             </div>
           </div>
 
-          {/* 2. Subject Name */}
+          {/* 2. Subject Name + Quick Suggested Chips from Folder's Sub-folders */}
           <div>
-            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Subject / Test Name
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Subject / Sub-Folder Name *
+              </label>
+            </div>
+
+            {/* Quick chips if current folder has subjects configured */}
+            {currentFolder && (currentFolder.subjects || []).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {currentFolder.subjects.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSubjectName(s)}
+                    className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors ${
+                      subjectName === s
+                        ? 'bg-indigo-600 text-white border-transparent font-bold'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <input
               type="text"
               required

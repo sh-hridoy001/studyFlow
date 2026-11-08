@@ -31,6 +31,7 @@ export const DailyOverviewHero: React.FC<DailyOverviewHeroProps> = ({
     completedTasksCount,
     totalTasksCount,
     folderStats,
+    folders,
   } = useStudy();
 
   const formattedActual = formatDuration(totalActualMinutes);
@@ -126,10 +127,9 @@ export const DailyOverviewHero: React.FC<DailyOverviewHeroProps> = ({
       {/* Multi-Segmented Color-Coded Progress Bar */}
       <div className="space-y-2">
         <div className="w-full bg-slate-100 dark:bg-slate-800 h-3.5 rounded-full overflow-hidden flex shadow-inner">
-          {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fId) => {
-            const stats = folderStats[fId];
-            const folder = PRIMARY_FOLDERS[fId];
-            if (stats.actualMinutes === 0) return null;
+          {folders.map((folder) => {
+            const stats = folderStats[folder.id];
+            if (!stats || stats.actualMinutes === 0) return null;
             const widthPct =
               totalTargetMinutes > 0
                 ? Math.min(100, (stats.actualMinutes / totalTargetMinutes) * 100)
@@ -137,7 +137,7 @@ export const DailyOverviewHero: React.FC<DailyOverviewHeroProps> = ({
 
             return (
               <div
-                key={fId}
+                key={folder.id}
                 className="h-full transition-all duration-500 first:rounded-l-full last:rounded-r-full"
                 style={{
                   width: `${widthPct}%`,
@@ -149,14 +149,13 @@ export const DailyOverviewHero: React.FC<DailyOverviewHeroProps> = ({
           })}
         </div>
 
-        {/* Legend / Category Tags (Unboxed text with separators per constitution) */}
+        {/* Legend / Category Tags */}
         <div className="flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-y-2 pt-2">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-            {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fId) => {
-              const stats = folderStats[fId];
-              const folder = PRIMARY_FOLDERS[fId];
+            {folders.map((folder) => {
+              const stats = folderStats[folder.id] || { actualMinutes: 0, targetMinutes: 0 };
               return (
-                <div key={fId} className="flex items-center gap-2">
+                <div key={folder.id} className="flex items-center gap-2">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: folder.color }}

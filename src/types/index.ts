@@ -1,20 +1,21 @@
-export type PrimaryFolderId = 'academic' | 'admission' | 'english';
+export type PrimaryFolderId = string;
 
 export interface FolderDefinition {
-  id: PrimaryFolderId;
+  id: string;
   name: string;
   subtitle: string;
-  color: string; // primary accent
-  lightBg: string;
-  darkBg: string;
-  borderClass: string;
-  badgeClass: string;
-  icon: 'academic' | 'admission' | 'english';
+  color: string; // primary accent hex e.g. #4F46E5
+  lightBg?: string;
+  darkBg?: string;
+  borderClass?: string;
+  badgeClass?: string;
+  icon?: string;
+  subjects: string[]; // Dynamic sub-folders or subjects inside this folder
 }
 
 export interface DailyTask {
   id: string;
-  folderId: PrimaryFolderId;
+  folderId: string;
   subjectName: string; // e.g. "Data Structures", "GRE Math", "IELTS Speaking"
   topics: string; // specific topics to cover today
   targetMinutes: number; // planned time e.g. 90 mins (1.5h)
@@ -26,7 +27,7 @@ export interface DailyTask {
 
 export interface HistoricalTaskRecord {
   id: string;
-  folderId: PrimaryFolderId;
+  folderId: string;
   subjectName: string;
   topics: string;
   targetMinutes: number;
@@ -41,7 +42,7 @@ export interface DateStudyRecord {
   totalActualMinutes: number;
   tasks: HistoricalTaskRecord[];
   folderBreakdown: Record<
-    PrimaryFolderId,
+    string,
     {
       targetMinutes: number;
       actualMinutes: number;
@@ -54,10 +55,25 @@ export interface DateStudyRecord {
 
 export interface ActiveStopwatchState {
   taskId: string | null;
-  folderId: PrimaryFolderId | null;
+  folderId: string | null;
   isRunning: boolean;
   secondsElapsed: number;
   lastTimestamp: number; // ms timestamp
 }
 
-export type ActiveMainTab = 'routine' | 'history';
+// 5-Time Daily Salah Tracker
+export type SalahPrayerName = 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha';
+
+export interface DailySalahRecord {
+  date: string; // YYYY-MM-DD
+  fajr: boolean;
+  dhuhr: boolean;
+  asr: boolean;
+  maghrib: boolean;
+  isha: boolean;
+  tahajjud?: boolean;
+  notes?: string;
+  updatedAt?: string;
+}
+
+export type ActiveMainTab = 'routine' | 'salah' | 'history';

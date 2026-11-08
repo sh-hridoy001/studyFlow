@@ -44,6 +44,7 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
     monthlySummary,
     allTimeTotalMinutes,
     streakDays,
+    folders,
   } = useStudy();
 
   // Summary period selector: 'week' | 'month' | 'all'
@@ -230,9 +231,8 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
           </div>
 
           <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden flex">
-            {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fKey) => {
-              const minutes = currentSummary.folderBreakdown[fKey] || 0;
-              const folder = PRIMARY_FOLDERS[fKey];
+            {folders.map((folder) => {
+              const minutes = currentSummary.folderBreakdown[folder.id] || 0;
               if (minutes === 0) return null;
               const widthPct =
                 currentSummary.totalActualMinutes > 0
@@ -241,7 +241,7 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
 
               return (
                 <div
-                  key={fKey}
+                  key={folder.id}
                   className="h-full transition-all duration-500 first:rounded-l-full last:rounded-r-full"
                   style={{
                     width: `${widthPct}%`,
@@ -255,16 +255,15 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
 
           {/* Category Badges */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs pt-1">
-            {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fKey) => {
-              const minutes = currentSummary.folderBreakdown[fKey] || 0;
-              const folder = PRIMARY_FOLDERS[fKey];
+            {folders.map((folder) => {
+              const minutes = currentSummary.folderBreakdown[folder.id] || 0;
               const pct =
                 currentSummary.totalActualMinutes > 0
                   ? Math.round((minutes / currentSummary.totalActualMinutes) * 100)
                   : 0;
 
               return (
-                <div key={fKey} className="flex items-center gap-2">
+                <div key={folder.id} className="flex items-center gap-2">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: folder.color }}
@@ -371,14 +370,14 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                     {/* Small category dots if active */}
                     {hasActivity && (
                       <div className="flex items-center gap-0.5">
-                        {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fKey) => {
-                          const fMins = record.folderBreakdown?.[fKey]?.actualMinutes || 0;
+                        {folders.map((folder) => {
+                          const fMins = record.folderBreakdown?.[folder.id]?.actualMinutes || 0;
                           if (fMins === 0) return null;
                           return (
                             <span
-                              key={fKey}
+                              key={folder.id}
                               className="w-1.5 h-1.5 rounded-full"
-                              style={{ backgroundColor: PRIMARY_FOLDERS[fKey].color }}
+                              style={{ backgroundColor: folder.color }}
                             />
                           );
                         })}
@@ -511,11 +510,10 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                 </div>
               </div>
 
-              {/* 3 Categories Breakdown Grid */}
+              {/* Categories Breakdown Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {(['academic', 'admission', 'english'] as PrimaryFolderId[]).map((fKey) => {
-                  const folder = PRIMARY_FOLDERS[fKey];
-                  const fData = selectedRecord.folderBreakdown?.[fKey] || {
+                {folders.map((folder) => {
+                  const fData = selectedRecord.folderBreakdown?.[folder.id] || {
                     actualMinutes: 0,
                     targetMinutes: 0,
                     tasksCount: 0,
@@ -528,7 +526,7 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
 
                   return (
                     <div
-                      key={fKey}
+                      key={folder.id}
                       className="bg-white dark:bg-slate-900 border rounded-2xl p-4 space-y-2 border-slate-200 dark:border-slate-800"
                       style={{
                         borderTopWidth: '3px',
@@ -536,10 +534,10 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                       }}
                     >
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">
-                          {fKey === 'academic' ? 'Academic' : fKey === 'admission' ? 'Admission' : 'English'}
+                        <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                          {folder.name}
                         </span>
-                        <span className="font-mono text-slate-400 text-[10px]">
+                        <span className="font-mono text-slate-400 text-[10px] shrink-0 ml-1">
                           {fData.completedTasksCount}/{fData.tasksCount} tasks
                         </span>
                       </div>
@@ -572,7 +570,14 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
 
                 <div className="space-y-2.5">
                   {selectedRecord.tasks.map((task) => {
-                    const folder = PRIMARY_FOLDERS[task.folderId];
+                    const folder =
+                      folders.find((f) => f.id === task.folderId) ||
+                      PRIMARY_FOLDERS[task.folderId] || {
+                        name: 'Study',
+                        color: '#4F46E5',
+                        badgeClass:
+                          'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
+                      };
                     return (
                       <div
                         key={task.id}
