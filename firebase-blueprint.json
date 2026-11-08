@@ -1,0 +1,38 @@
+{
+  "entities": {
+    "StudyData": {
+      "title": "StudyData",
+      "description": "User daily study sessions, tasks across Academic, Admission, and English Learning, stopwatch state, and history records.",
+      "type": "object",
+      "properties": {
+        "tasks": {
+          "type": "array",
+          "description": "List of daily target tasks"
+        },
+        "dateRecords": {
+          "type": "object",
+          "description": "Historical study duration and completed tasks categorized by YYYY-MM-DD"
+        },
+        "lastUpdated": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        },
+        "userEmail": {
+          "type": "string",
+          "description": "Email address of account owner"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of account owner"
+        }
+      },
+      "required": ["tasks", "dateRecords", "lastUpdated"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/studyData/{docId}": {
+      "schema": "StudyData",
+      "description": "Stores user study data including tasks and history records partitioned by authenticated user ID."
+    }
+  }
+}
