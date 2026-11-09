@@ -41,6 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
     toggleTheme,
     syncStatus,
     todaySalahCount,
+    setSelectedFolderId,
   } = useStudy();
 
   const { user, logout } = useAuth();
@@ -63,8 +64,15 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Navbar Row */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
         {/* Zone 1: Brand Wordmark & Cloud Sync Status */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center text-white shadow-xs shrink-0">
+        <div
+          onClick={() => {
+            setSelectedFolderId(null);
+            setActiveTab('routine');
+          }}
+          className="flex items-center gap-2 sm:gap-3 shrink-0 min-w-0 cursor-pointer group/brand"
+          title="Return to Routine Overview"
+        >
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center text-white shadow-xs shrink-0 group-hover/brand:scale-105 transition-transform">
             <Timer className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div className="min-w-0">
@@ -109,7 +117,10 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Zone 2: Desktop Navigation Tabs (Hidden on mobile, cleanly rendered on md+) */}
         <nav className="hidden md:flex items-center gap-1.5 py-1">
           <button
-            onClick={() => setActiveTab('routine')}
+            onClick={() => {
+              setSelectedFolderId(null);
+              setActiveTab('routine');
+            }}
             className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'routine'
                 ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 shadow-xs'
@@ -289,7 +300,10 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="md:hidden border-t border-slate-200/80 dark:border-slate-800/80 px-2 py-1.5 bg-slate-50/80 dark:bg-slate-900/80">
         <nav className="grid grid-cols-3 gap-1 w-full max-w-md mx-auto">
           <button
-            onClick={() => setActiveTab('routine')}
+            onClick={() => {
+              setSelectedFolderId(null);
+              setActiveTab('routine');
+            }}
             className={`flex items-center justify-center gap-1.5 py-2 px-1 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
               activeTab === 'routine'
                 ? 'bg-indigo-600 text-white shadow-xs font-bold'

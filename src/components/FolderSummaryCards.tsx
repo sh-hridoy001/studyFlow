@@ -10,12 +10,25 @@ import {
   FolderPlus,
   BookOpen,
   Folder,
+  ArrowRight,
+  Play,
+  Pause,
+  Timer,
 } from 'lucide-react';
 import { FolderManageModal } from './FolderManageModal';
 import { SubjectWorkspaceModal } from './SubjectWorkspaceModal';
 
 export const FolderSummaryCards: React.FC = () => {
-  const { folders, folderStats, selectedFolderFilter, setSelectedFolderFilter } = useStudy();
+  const {
+    folders,
+    folderStats,
+    selectedFolderFilter,
+    setSelectedFolderFilter,
+    setSelectedFolderId,
+    startFolderTimer,
+    pauseStopwatch,
+    stopwatch,
+  } = useStudy();
 
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [editingFolderId, setEditingFolderId] = useState<string | undefined>();
@@ -89,26 +102,23 @@ export const FolderSummaryCards: React.FC = () => {
               <div>
                 {/* Header */}
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div
+                    onClick={() => setSelectedFolderId(folder.id)}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group/title"
+                    title={`Open ${folder.name} workspace`}
+                  >
                     <div
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0"
+                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0 group-hover/title:scale-105 transition-transform"
                       style={{ backgroundColor: folder.color }}
                     >
                       <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">
+                        <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate group-hover/title:text-indigo-600 dark:group-hover/title:text-indigo-400 transition-colors">
                           {folder.name}
                         </h3>
-                        <button
-                          onClick={() => handleOpenManageFolder(folder.id)}
-                          className="opacity-70 sm:opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-opacity cursor-pointer"
-                          title="Rename folder & manage subjects"
-                          aria-label="Manage subjects"
-                        >
-                          <Settings2 className="w-3.5 h-3.5" />
-                        </button>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover/title:translate-x-0.5 transition-transform" />
                       </div>
                       <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
                         {folder.subtitle || 'Study category'}
@@ -116,16 +126,29 @@ export const FolderSummaryCards: React.FC = () => {
                     </div>
                   </div>
 
-                  <span
-                    className="text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0"
-                    style={{
-                      color: folder.color,
-                      borderColor: `${folder.color}40`,
-                      backgroundColor: `${folder.color}15`,
-                    }}
-                  >
-                    {stats.completedTasks}/{stats.totalTasks} Done
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenManageFolder(folder.id);
+                      }}
+                      className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                      title="Folder settings"
+                      aria-label="Manage folder"
+                    >
+                      <Settings2 className="w-3.5 h-3.5" />
+                    </button>
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md border shrink-0"
+                      style={{
+                        color: folder.color,
+                        borderColor: `${folder.color}40`,
+                        backgroundColor: `${folder.color}15`,
+                      }}
+                    >
+                      {stats.completedTasks}/{stats.totalTasks} Done
+                    </span>
+                  </div>
                 </div>
 
                 {/* Study Time Metrics */}
@@ -214,24 +237,76 @@ export const FolderSummaryCards: React.FC = () => {
                 </div>
               </div>
 
-              {/* Bottom Quick Action: Filter / Add Task */}
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-4 flex items-center justify-between text-xs">
+              {/* Bottom Actions: Open Folder + Timer + Filter */}
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-4 flex items-center justify-between text-xs gap-2 flex-wrap">
                 <button
-                  onClick={() => setSelectedFolderFilter(isSelected ? 'all' : folder.id)}
-                  className={`font-semibold transition-colors cursor-pointer ${
-                    isSelected ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                  type="button"
+                  onClick={() => setSelectedFolderId(folder.id)}
+                  className="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                 >
-                  {isSelected ? '✓ Filter Active' : 'Filter Tasks'}
+                  <span>Open Folder</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
 
-                <button
-                  onClick={() => handleOpenManageFolder(folder.id)}
-                  className="flex items-center gap-1 font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Manage Subjects</span>
-                </button>
+                <div className="flex items-center gap-1.5">
+                  {(() => {
+                    const isRunningHere = String(stopwatch.folderId) === String(folder.id) && stopwatch.isRunning;
+                    const isPausedHere = String(stopwatch.folderId) === String(folder.id) && !stopwatch.isRunning && stopwatch.secondsElapsed > 0;
+
+                    if (isRunningHere) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => pauseStopwatch()}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-[11px] transition-colors cursor-pointer shadow-xs animate-pulse"
+                          title="Pause study timer for this folder"
+                        >
+                          <Pause className="w-3 h-3 fill-current" />
+                          <span>Pause</span>
+                        </button>
+                      );
+                    }
+
+                    if (isPausedHere) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => startFolderTimer(folder.id)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-xs"
+                          title="Resume study timer for this folder"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span>Resume</span>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => startFolderTimer(folder.id)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-[11px] transition-colors cursor-pointer"
+                        title="Start study timer for this folder"
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>Timer</span>
+                      </button>
+                    );
+                  })()}
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFolderFilter(isSelected ? 'all' : folder.id)}
+                    className={`font-semibold px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white'
+                        : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                    title="Filter tasks list below"
+                  >
+                    {isSelected ? '✓ Filter' : 'Filter'}
+                  </button>
+                </div>
               </div>
             </div>
           );

@@ -102,12 +102,18 @@ interface StudyContextType {
   toggleTaskComplete: (id: string) => void;
   addStudyTimeToTask: (taskId: string, minutes: number) => void;
 
+  // Selected Folder Drill-down (mobile-app like view)
+  selectedFolderId: string | null;
+  setSelectedFolderId: (id: string | null) => void;
+
   // Active Stopwatch
   stopwatch: ActiveStopwatchState;
   startStopwatch: (taskId: string, folderId: string) => void;
+  startFolderTimer: (folderId: string, subjectName?: string) => void;
   pauseStopwatch: () => void;
   toggleStopwatch: (taskId?: string, folderId?: string) => void;
   resetStopwatch: () => void;
+  stopAndSaveStopwatch: () => void;
 
   // Start New Day / Reset Daily Progress
   startNewDay: (archiveFirst?: boolean) => void;
@@ -275,6 +281,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Dynamic Folders state
   const [folders, setFolders] = useState<FolderDefinition[]>(initialData.folders);
+
+  // Selected Folder Drill-down (mobile-app like view)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // Filter selection in routine planner
   const [selectedFolderFilter, setSelectedFolderFilter] = useState<string | 'all'>('all');
@@ -559,11 +568,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Active Stopwatch tick effect
+  // Active Stopwatch tick effect (supports both task-based timer and folder-level timer)
   useEffect(() => {
     let interval: number | null = null;
 
-    if (stopwatch.isRunning && stopwatch.taskId) {
+    if (stopwatch.isRunning && (stopwatch.taskId || stopwatch.folderId)) {
       interval = window.setInterval(() => {
         setStopwatch((prev) => {
           if (!prev.isRunning) return prev;
@@ -571,28 +580,73 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const deltaSec = Math.max(1, Math.round((now - prev.lastTimestamp) / 1000));
           const newElapsed = prev.secondsElapsed + deltaSec;
 
-          // Every 60s, credit 1 minute to the task
-          if (newElapsed >= 60) {
-            const minutesToAdd = Math.floor(newElapsed / 60);
-            const remainingSec = newElapsed % 60;
+          // Check if one or more full minutes were completed
+          const prevMinute = Math.floor(prev.secondsElapsed / 60);
+          const newMinute = Math.floor(newElapsed / 60);
+          const minutesToAdd = newMinute - prevMinute;
 
+          if (minutesToAdd > 0) {
             setTasks((currentTasks) => {
-              const updated = currentTasks.map((t) =>
-                String(t.id) === String(prev.taskId)
-                  ? { ...t, actualMinutes: t.actualMinutes + minutesToAdd }
-                  : t
-              );
-              scheduleSaveToFirestore(folders, updated, dateRecords, salahRecords);
-              return updated;
-            });
+              let updatedTasks = currentTasks;
+              let targetTaskId = prev.taskId;
 
-            return {
-              ...prev,
-              secondsElapsed: remainingSec,
-              lastTimestamp: now,
-            };
+              if (targetTaskId) {
+                const found = currentTasks.some((t) => String(t.id) === String(targetTaskId));
+                if (found) {
+                  updatedTasks = currentTasks.map((t) =>
+                    String(t.id) === String(targetTaskId)
+                      ? { ...t, actualMinutes: t.actualMinutes + minutesToAdd }
+                      : t
+                  );
+                } else if (prev.folderId) {
+                  const targetSubj = prev.subjectName || 'Study Session';
+                  const existingTask = currentTasks.find(
+                    (t) =>
+                      String(t.folderId) === String(prev.folderId) &&
+                      t.subjectName.toLowerCase() === targetSubj.toLowerCase()
+                  );
+                  if (existingTask) {
+                    updatedTasks = currentTasks.map((t) =>
+                      String(t.id) === String(existingTask.id)
+                        ? { ...t, actualMinutes: t.actualMinutes + minutesToAdd }
+                        : t
+                    );
+                  }
+                }
+              } else if (prev.folderId) {
+                const targetSubj = prev.subjectName || 'Study Session';
+                const existingTask = currentTasks.find(
+                  (t) =>
+                    String(t.folderId) === String(prev.folderId) &&
+                    t.subjectName.toLowerCase() === targetSubj.toLowerCase()
+                );
+                if (existingTask) {
+                  updatedTasks = currentTasks.map((t) =>
+                    String(t.id) === String(existingTask.id)
+                      ? { ...t, actualMinutes: t.actualMinutes + minutesToAdd }
+                      : t
+                  );
+                } else {
+                  const newTask: DailyTask = {
+                    id: `task-timer-${Date.now()}`,
+                    folderId: prev.folderId,
+                    subjectName: targetSubj,
+                    topics: 'Folder study session',
+                    targetMinutes: 60,
+                    actualMinutes: minutesToAdd,
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                  };
+                  updatedTasks = [newTask, ...currentTasks];
+                }
+              }
+
+              scheduleSaveToFirestore(folders, updatedTasks, dateRecords, salahRecords);
+              return updatedTasks;
+            });
           }
 
+          // Monotonically increasing elapsed seconds (e.g. 59, 60, 61... 120... 180)
           return {
             ...prev,
             secondsElapsed: newElapsed,
@@ -605,7 +659,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       if (interval) window.clearInterval(interval);
     };
-  }, [stopwatch.isRunning, stopwatch.taskId, folders, dateRecords, salahRecords, scheduleSaveToFirestore]);
+  }, [stopwatch.isRunning, stopwatch.taskId, stopwatch.folderId, folders, dateRecords, salahRecords, scheduleSaveToFirestore]);
 
   // Dynamic Folder Operations
   const addFolder = (folderData: {
@@ -922,27 +976,131 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  // Stopwatch controls
-  const startStopwatch = (taskId: string, folderId: string) => {
-    if (stopwatch.taskId && String(stopwatch.taskId) !== String(taskId) && stopwatch.secondsElapsed >= 30) {
-      const leftoverMinutes = Math.round(stopwatch.secondsElapsed / 60);
-      if (leftoverMinutes > 0) {
-        isLocalUpdateRef.current = true;
-        setTasks((prev) => {
-          const nextTasks = prev.map((t) =>
-            String(t.id) === String(stopwatch.taskId)
-              ? { ...t, actualMinutes: t.actualMinutes + leftoverMinutes }
+  // Flush accumulated timer seconds into task/folder records immediately
+  // Flush uncredited timer seconds into task records on unload or session switch
+  const flushStopwatchTimeToTasks = useCallback(
+    (swState: ActiveStopwatchState) => {
+      const uncredited = swState.secondsElapsed % 60;
+      const shouldRoundUp = uncredited >= 30 || (swState.secondsElapsed >= 25 && swState.secondsElapsed < 60);
+      if (!shouldRoundUp) return;
+
+      isLocalUpdateRef.current = true;
+      setTasks((prevTasks) => {
+        let updatedTasks = prevTasks;
+        if (swState.taskId) {
+          updatedTasks = prevTasks.map((t) =>
+            String(t.id) === String(swState.taskId)
+              ? { ...t, actualMinutes: t.actualMinutes + 1 }
               : t
           );
-          scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
-          return nextTasks;
-        });
+        } else if (swState.folderId) {
+          const targetSubj = (swState.subjectName || '').trim() || 'Study Session';
+          const existing = prevTasks.find(
+            (t) =>
+              String(t.folderId) === String(swState.folderId) &&
+              t.subjectName.toLowerCase() === targetSubj.toLowerCase()
+          );
+          if (existing) {
+            updatedTasks = prevTasks.map((t) =>
+              String(t.id) === String(existing.id)
+                ? { ...t, actualMinutes: t.actualMinutes + 1 }
+                : t
+            );
+          }
+        }
+        scheduleSaveToFirestore(folders, updatedTasks, dateRecords, salahRecords);
+        return updatedTasks;
+      });
+    },
+    [folders, dateRecords, salahRecords, scheduleSaveToFirestore]
+  );
+
+  // Flush on tab close or navigation
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (stopwatch.secondsElapsed >= 25) {
+        flushStopwatchTimeToTasks(stopwatch);
       }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [stopwatch, flushStopwatchTimeToTasks]);
+
+  // Stopwatch controls (Task-level & Folder-level)
+  const startStopwatch = (taskId: string, folderId: string) => {
+    // If resuming the same task that was paused, continue from current elapsed seconds
+    if (String(stopwatch.taskId) === String(taskId) && stopwatch.secondsElapsed > 0 && !stopwatch.isRunning) {
+      setStopwatch((prev) => ({
+        ...prev,
+        isRunning: true,
+        lastTimestamp: Date.now(),
+      }));
+      return;
     }
+
+    const linkedTask = tasks.find((t) => String(t.id) === String(taskId));
 
     setStopwatch({
       taskId,
       folderId,
+      subjectName: linkedTask?.subjectName || null,
+      isRunning: true,
+      secondsElapsed: 0,
+      lastTimestamp: Date.now(),
+    });
+  };
+
+  const startFolderTimer = (folderId: string, subjectName?: string) => {
+    const targetSubj = (subjectName || '').trim() || 'Study Session';
+
+    // If already paused on the same folder and subject, resume seamlessly!
+    if (
+      String(stopwatch.folderId) === String(folderId) &&
+      (!stopwatch.subjectName || stopwatch.subjectName.toLowerCase() === targetSubj.toLowerCase()) &&
+      stopwatch.secondsElapsed > 0 &&
+      !stopwatch.isRunning
+    ) {
+      setStopwatch((prev) => ({
+        ...prev,
+        isRunning: true,
+        lastTimestamp: Date.now(),
+      }));
+      return;
+    }
+
+    // Immediately link or create a task for today so dashboard and routine display it live!
+    let activeTaskId = '';
+    const existingTask = tasks.find(
+      (t) =>
+        String(t.folderId) === String(folderId) &&
+        t.subjectName.toLowerCase() === targetSubj.toLowerCase()
+    );
+
+    if (existingTask) {
+      activeTaskId = existingTask.id;
+    } else {
+      const newTask: DailyTask = {
+        id: `task-timer-${Date.now()}`,
+        folderId,
+        subjectName: targetSubj,
+        topics: 'Live study session',
+        targetMinutes: 60,
+        actualMinutes: 0,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+      activeTaskId = newTask.id;
+      setTasks((prev) => {
+        const next = [newTask, ...prev];
+        scheduleSaveToFirestore(folders, next, dateRecords, salahRecords);
+        return next;
+      });
+    }
+
+    setStopwatch({
+      taskId: activeTaskId,
+      folderId,
+      subjectName: targetSubj,
       isRunning: true,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
@@ -950,34 +1108,58 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const pauseStopwatch = () => {
-    if (stopwatch.taskId && stopwatch.secondsElapsed >= 30) {
-      const leftoverMinutes = Math.round(stopwatch.secondsElapsed / 60);
-      if (leftoverMinutes > 0) {
-        isLocalUpdateRef.current = true;
-        setTasks((prev) => {
-          const nextTasks = prev.map((t) =>
-            String(t.id) === String(stopwatch.taskId)
-              ? { ...t, actualMinutes: t.actualMinutes + leftoverMinutes }
-              : t
-          );
-          scheduleSaveToFirestore(folders, nextTasks, dateRecords, salahRecords);
-          return nextTasks;
-        });
-      }
-    }
-
+    // Preserve elapsed seconds so timer can be resumed without losing progress!
     setStopwatch((prev) => ({
       ...prev,
       isRunning: false,
-      secondsElapsed: 0,
+      lastTimestamp: Date.now(),
     }));
+  };
+
+  const stopAndSaveStopwatch = () => {
+    const uncreditedSeconds = stopwatch.secondsElapsed % 60;
+    const shouldRoundUp = uncreditedSeconds >= 30 || (stopwatch.secondsElapsed >= 25 && stopwatch.secondsElapsed < 60);
+
+    if (shouldRoundUp && stopwatch.taskId) {
+      setTasks((currentTasks) => {
+        const updated = currentTasks.map((t) =>
+          String(t.id) === String(stopwatch.taskId)
+            ? { ...t, actualMinutes: t.actualMinutes + 1 }
+            : t
+        );
+        scheduleSaveToFirestore(folders, updated, dateRecords, salahRecords);
+        return updated;
+      });
+    }
+
+    try {
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+    } catch {}
+
+    setStopwatch({
+      taskId: null,
+      folderId: null,
+      subjectName: null,
+      isRunning: false,
+      secondsElapsed: 0,
+      lastTimestamp: Date.now(),
+    });
   };
 
   const toggleStopwatch = (taskId?: string, folderId?: string) => {
     if (stopwatch.isRunning) {
       pauseStopwatch();
+    } else if (stopwatch.secondsElapsed > 0) {
+      // Resume current active timer
+      setStopwatch((prev) => ({
+        ...prev,
+        isRunning: true,
+        lastTimestamp: Date.now(),
+      }));
     } else if (taskId && folderId) {
       startStopwatch(taskId, folderId);
+    } else if (folderId) {
+      startFolderTimer(folderId);
     }
   };
 
@@ -985,6 +1167,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStopwatch({
       taskId: null,
       folderId: null,
+      subjectName: null,
       isRunning: false,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
@@ -1383,11 +1566,15 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteTask,
         toggleTaskComplete,
         addStudyTimeToTask,
+        selectedFolderId,
+        setSelectedFolderId,
         stopwatch,
         startStopwatch,
+        startFolderTimer,
         pauseStopwatch,
         toggleStopwatch,
         resetStopwatch,
+        stopAndSaveStopwatch,
         startNewDay,
         salahRecords,
         selectedSalahDate,

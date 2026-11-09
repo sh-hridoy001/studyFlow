@@ -9,6 +9,7 @@ import { TasksList } from './components/TasksList';
 import { StudyHistory } from './components/StudyHistory';
 import { SalahTracker } from './components/SalahTracker';
 import { ActiveStopwatchBar } from './components/ActiveStopwatchBar';
+import { FolderDetailView } from './components/FolderDetailView';
 import { NewTaskModal } from './components/NewTaskModal';
 import { TaskDetailsModal } from './components/TaskDetailsModal';
 import { StartNewDayModal } from './components/StartNewDayModal';
@@ -21,7 +22,14 @@ import { Cloud, Calendar, Download, Loader2, Timer, Moon, CheckSquare } from 'lu
 import { downloadSingleFileApp } from './utils/singleFileGenerator';
 
 function AppContent() {
-  const { activeTab, setActiveTab, isDataLoading, syncStatus } = useStudy();
+  const {
+    activeTab,
+    setActiveTab,
+    isDataLoading,
+    syncStatus,
+    selectedFolderId,
+    setSelectedFolderId,
+  } = useStudy();
 
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [defaultFolder, setDefaultFolder] = useState<string | undefined>();
@@ -72,6 +80,9 @@ function AppContent() {
         onOpenResetAllData={() => setIsResetAllOpen(true)}
       />
 
+      {/* Sticky Active Stopwatch Bar right below the Navigation Bar (No Netlify overlay conflict!) */}
+      <ActiveStopwatchBar />
+
       {/* Cloud Loading Banner if fetching initial Firestore state */}
       {isDataLoading && (
         <div className="bg-indigo-600 text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-center gap-2">
@@ -83,24 +94,35 @@ function AppContent() {
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden">
         {activeTab === 'routine' ? (
-          <>
-            {/* 1. Daily Overview Hero with Total Target vs Actual Study Time */}
-            <DailyOverviewHero
-              onOpenAddTask={() => handleOpenAddTask()}
-              onOpenResetDay={() => setIsResetDayOpen(true)}
-              onOpenSyncCalendar={() => handleOpenSyncCalendar()}
-            />
-
-            {/* 2. Dynamic Folder Cards & Subject Manager */}
-            <FolderSummaryCards />
-
-            {/* 3. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
-            <TasksList
+          selectedFolderId ? (
+            /* Mobile App-style Folder Drill-down Workspace View */
+            <FolderDetailView
+              folderId={selectedFolderId}
+              onBack={() => setSelectedFolderId(null)}
               onOpenAddTask={handleOpenAddTask}
               onEditTask={handleEditTask}
               onViewTask={handleViewTask}
             />
-          </>
+          ) : (
+            <>
+              {/* 1. Daily Overview Hero with Total Target vs Actual Study Time */}
+              <DailyOverviewHero
+                onOpenAddTask={() => handleOpenAddTask()}
+                onOpenResetDay={() => setIsResetDayOpen(true)}
+                onOpenSyncCalendar={() => handleOpenSyncCalendar()}
+              />
+
+              {/* 2. Dynamic Folder Cards & Subject Manager */}
+              <FolderSummaryCards />
+
+              {/* 3. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
+              <TasksList
+                onOpenAddTask={handleOpenAddTask}
+                onEditTask={handleEditTask}
+                onViewTask={handleViewTask}
+              />
+            </>
+          )
         ) : activeTab === 'salah' ? (
           /* 5-Time Daily Salah Tracker Section */
           <SalahTracker />
@@ -113,9 +135,6 @@ function AppContent() {
         )}
       </main>
 
-      {/* Active Stopwatch Floating Bar */}
-      <ActiveStopwatchBar />
-
       {/* Quiet Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 py-6 text-xs text-slate-500 dark:text-slate-400 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
@@ -127,7 +146,10 @@ function AppContent() {
 
           <div className="flex items-center gap-4 flex-wrap justify-center">
             <button
-              onClick={() => setActiveTab('routine')}
+              onClick={() => {
+                setSelectedFolderId(null);
+                setActiveTab('routine');
+              }}
               className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
                 activeTab === 'routine' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}

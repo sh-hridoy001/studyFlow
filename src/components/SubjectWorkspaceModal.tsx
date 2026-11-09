@@ -17,6 +17,8 @@ import {
   Bookmark,
   CalendarPlus,
   Lightbulb,
+  Play,
+  Timer,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -41,6 +43,7 @@ export const SubjectWorkspaceModal: React.FC<SubjectWorkspaceModalProps> = ({
     toggleChapterCompleted,
     addTask,
     tasks,
+    startFolderTimer,
   } = useStudy();
 
   const currentFolder = folders.find((f) => String(f.id) === String(folderId));
@@ -201,13 +204,29 @@ export const SubjectWorkspaceModal: React.FC<SubjectWorkspaceModalProps> = ({
               </span>
             </div>
 
-            <button
-              onClick={handleStartAdd}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Add Chapter / Note</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  startFolderTimer(folderId, subjectName);
+                  onClose();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                title="Start study timer for this subject"
+              >
+                <Play className="w-3.5 h-3.5 fill-current text-indigo-600" />
+                <span>Start Timer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleStartAdd}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Chapter</span>
+              </button>
+            </div>
           </div>
 
           {/* Progress Bar */}

@@ -75,6 +75,7 @@ export interface DateStudyRecord {
 export interface ActiveStopwatchState {
   taskId: string | null;
   folderId: string | null;
+  subjectName?: string | null;
   isRunning: boolean;
   secondsElapsed: number;
   lastTimestamp: number; // ms timestamp
