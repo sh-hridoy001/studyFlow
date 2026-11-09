@@ -319,6 +319,10 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const isLocalUpdateRef = useRef<boolean>(false);
+  const stopwatchRef = useRef<ActiveStopwatchState>(stopwatch);
+  useEffect(() => {
+    stopwatchRef.current = stopwatch;
+  }, [stopwatch]);
 
   // Helper to persist current snapshot to localStorage cache
   const saveSnapshotToLocalStorage = useCallback(
@@ -326,14 +330,16 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       currentFolders: FolderDefinition[],
       currentTasks: DailyTask[],
       currentDateRecords: Record<string, DateStudyRecord>,
-      currentSalahRecords: Record<string, DailySalahRecord>
+      currentSalahRecords: Record<string, DailySalahRecord>,
+      customStopwatch?: ActiveStopwatchState
     ) => {
       const payload = {
         folders: currentFolders,
         tasks: currentTasks,
         dateRecords: currentDateRecords,
         salahRecords: currentSalahRecords,
-        stopwatch,
+        // In persistent storage, timer is always stored with isRunning: false
+        stopwatch: customStopwatch || { ...stopwatchRef.current, isRunning: false },
       };
 
       if (user?.uid) {
@@ -345,7 +351,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       safeStorageSet('focustrack_active_data', payload);
     },
-    [user, stopwatch]
+    [user]
   );
 
   // Push changes to Firestore (or LocalStorage if Guest) with debouncing & safety
@@ -354,10 +360,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       newFolders: FolderDefinition[],
       newTasks: DailyTask[],
       newDateRecords: Record<string, DateStudyRecord>,
-      newSalahRecords: Record<string, DailySalahRecord>
+      newSalahRecords: Record<string, DailySalahRecord>,
+      customStopwatch?: ActiveStopwatchState
     ) => {
       // 1. Immediately persist to localStorage so refresh never loses data!
-      saveSnapshotToLocalStorage(newFolders, newTasks, newDateRecords, newSalahRecords);
+      saveSnapshotToLocalStorage(newFolders, newTasks, newDateRecords, newSalahRecords, customStopwatch);
 
       if (!user) return;
 
@@ -375,12 +382,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       saveTimeoutRef.current = window.setTimeout(async () => {
         try {
+          const swToSave = customStopwatch || { ...stopwatchRef.current, isRunning: false };
           await saveUserStudyDataToFirestore(user.uid, {
             folders: newFolders,
             tasks: newTasks,
             dateRecords: newDateRecords,
             salahRecords: newSalahRecords,
-            stopwatch,
+            stopwatch: swToSave,
           });
           setSyncStatus('synced');
         } catch (error) {
@@ -389,7 +397,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }, 500);
     },
-    [user, stopwatch, saveSnapshotToLocalStorage]
+    [user, saveSnapshotToLocalStorage]
   );
 
   // Load and subscribe to data when user state changes
@@ -410,7 +418,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (Array.isArray(cached.tasks)) setTasks(cached.tasks);
         if (cached.dateRecords && typeof cached.dateRecords === 'object') setDateRecords(cached.dateRecords);
         if (cached.salahRecords && typeof cached.salahRecords === 'object') setSalahRecords(cached.salahRecords);
-        if (cached.stopwatch) setStopwatch(cached.stopwatch);
+        if (cached.stopwatch) setStopwatch({ ...cached.stopwatch, isRunning: false });
       } else {
         // Initialize fresh guest data
         const initialGuest = {
@@ -461,9 +469,8 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setDateRecords(updatedRecords);
           setSalahRecords(updatedSalah);
 
-          if (cloudData.stopwatch) {
-            setStopwatch((prev) => (prev.isRunning ? prev : cloudData.stopwatch || prev));
-          }
+          // Never override active local stopwatch from remote Firestore snapshot!
+          // The local stopwatch is interactive user UI state and must never auto-restart from snapshot events.
 
           // Save to local cache
           safeStorageSet(userCacheKey, {
@@ -471,7 +478,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             tasks: updatedTasks,
             dateRecords: updatedRecords,
             salahRecords: updatedSalah,
-            stopwatch: cloudData.stopwatch,
+            stopwatch: { ...stopwatchRef.current, isRunning: false },
           });
 
           setSyncStatus('synced');
@@ -568,6 +575,22 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Decoupled ref for background saving to avoid interval recreation loops
+  const latestStudyStateRef = useRef({
+    folders,
+    dateRecords,
+    salahRecords,
+    scheduleSaveToFirestore,
+  });
+  useEffect(() => {
+    latestStudyStateRef.current = {
+      folders,
+      dateRecords,
+      salahRecords,
+      scheduleSaveToFirestore,
+    };
+  }, [folders, dateRecords, salahRecords, scheduleSaveToFirestore]);
+
   // Active Stopwatch tick effect (supports both task-based timer and folder-level timer)
   useEffect(() => {
     let interval: number | null = null;
@@ -641,7 +664,9 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 }
               }
 
-              scheduleSaveToFirestore(folders, updatedTasks, dateRecords, salahRecords);
+              const { folders: f, dateRecords: dr, salahRecords: sr, scheduleSaveToFirestore: saveFn } =
+                latestStudyStateRef.current;
+              saveFn(f, updatedTasks, dr, sr);
               return updatedTasks;
             });
           }
@@ -659,7 +684,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       if (interval) window.clearInterval(interval);
     };
-  }, [stopwatch.isRunning, stopwatch.taskId, stopwatch.folderId, folders, dateRecords, salahRecords, scheduleSaveToFirestore]);
+  }, [stopwatch.isRunning, stopwatch.taskId, stopwatch.folderId]);
 
   // Dynamic Folder Operations
   const addFolder = (folderData: {
@@ -1029,25 +1054,28 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Stopwatch controls (Task-level & Folder-level)
   const startStopwatch = (taskId: string, folderId: string) => {
     // If resuming the same task that was paused, continue from current elapsed seconds
-    if (String(stopwatch.taskId) === String(taskId) && stopwatch.secondsElapsed > 0 && !stopwatch.isRunning) {
-      setStopwatch((prev) => ({
-        ...prev,
+    if (String(stopwatchRef.current.taskId) === String(taskId) && stopwatchRef.current.secondsElapsed > 0 && !stopwatchRef.current.isRunning) {
+      const resumedState: ActiveStopwatchState = {
+        ...stopwatchRef.current,
         isRunning: true,
         lastTimestamp: Date.now(),
-      }));
+      };
+      stopwatchRef.current = resumedState;
+      setStopwatch(resumedState);
       return;
     }
 
     const linkedTask = tasks.find((t) => String(t.id) === String(taskId));
-
-    setStopwatch({
+    const newState: ActiveStopwatchState = {
       taskId,
       folderId,
       subjectName: linkedTask?.subjectName || null,
       isRunning: true,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
-    });
+    };
+    stopwatchRef.current = newState;
+    setStopwatch(newState);
   };
 
   const startFolderTimer = (folderId: string, subjectName?: string) => {
@@ -1055,16 +1083,18 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // If already paused on the same folder and subject, resume seamlessly!
     if (
-      String(stopwatch.folderId) === String(folderId) &&
-      (!stopwatch.subjectName || stopwatch.subjectName.toLowerCase() === targetSubj.toLowerCase()) &&
-      stopwatch.secondsElapsed > 0 &&
-      !stopwatch.isRunning
+      String(stopwatchRef.current.folderId) === String(folderId) &&
+      (!stopwatchRef.current.subjectName || stopwatchRef.current.subjectName.toLowerCase() === targetSubj.toLowerCase()) &&
+      stopwatchRef.current.secondsElapsed > 0 &&
+      !stopwatchRef.current.isRunning
     ) {
-      setStopwatch((prev) => ({
-        ...prev,
+      const resumedState: ActiveStopwatchState = {
+        ...stopwatchRef.current,
         isRunning: true,
         lastTimestamp: Date.now(),
-      }));
+      };
+      stopwatchRef.current = resumedState;
+      setStopwatch(resumedState);
       return;
     }
 
@@ -1097,65 +1127,107 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    setStopwatch({
+    const newState: ActiveStopwatchState = {
       taskId: activeTaskId,
       folderId,
       subjectName: targetSubj,
       isRunning: true,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
-    });
+    };
+    stopwatchRef.current = newState;
+    setStopwatch(newState);
   };
 
   const pauseStopwatch = () => {
-    // Preserve elapsed seconds so timer can be resumed without losing progress!
-    setStopwatch((prev) => ({
-      ...prev,
+    // 1. Immediately cancel any scheduled debounced save that could have contained isRunning: true
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+
+    const pausedState: ActiveStopwatchState = {
+      ...stopwatchRef.current,
       isRunning: false,
       lastTimestamp: Date.now(),
-    }));
+    };
+    stopwatchRef.current = pausedState;
+    setStopwatch(pausedState);
+
+    // Save stopped/paused state with isRunning: false to storage immediately
+    saveSnapshotToLocalStorage(folders, tasks, dateRecords, salahRecords, pausedState);
+    if (user && !user.uid.startsWith('guest_')) {
+      saveUserStudyDataToFirestore(user.uid, {
+        folders,
+        tasks,
+        dateRecords,
+        salahRecords,
+        stopwatch: pausedState,
+      }).catch(console.error);
+    }
   };
 
   const stopAndSaveStopwatch = () => {
-    const uncreditedSeconds = stopwatch.secondsElapsed % 60;
-    const shouldRoundUp = uncreditedSeconds >= 30 || (stopwatch.secondsElapsed >= 25 && stopwatch.secondsElapsed < 60);
-
-    if (shouldRoundUp && stopwatch.taskId) {
-      setTasks((currentTasks) => {
-        const updated = currentTasks.map((t) =>
-          String(t.id) === String(stopwatch.taskId)
-            ? { ...t, actualMinutes: t.actualMinutes + 1 }
-            : t
-        );
-        scheduleSaveToFirestore(folders, updated, dateRecords, salahRecords);
-        return updated;
-      });
+    // 1. Immediately cancel any scheduled debounced save
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
     }
 
-    try {
-      confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
-    } catch {}
+    const currentElapsed = stopwatchRef.current.secondsElapsed;
+    const currentTaskId = stopwatchRef.current.taskId;
+    const uncreditedSeconds = currentElapsed % 60;
+    const shouldRoundUp = uncreditedSeconds >= 30 || (currentElapsed >= 25 && currentElapsed < 60);
 
-    setStopwatch({
+    const stoppedState: ActiveStopwatchState = {
       taskId: null,
       folderId: null,
       subjectName: null,
       isRunning: false,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
+    };
+    stopwatchRef.current = stoppedState;
+    setStopwatch(stoppedState);
+
+    setTasks((currentTasks) => {
+      let updated = currentTasks;
+      if (shouldRoundUp && currentTaskId) {
+        updated = currentTasks.map((t) =>
+          String(t.id) === String(currentTaskId)
+            ? { ...t, actualMinutes: t.actualMinutes + 1 }
+            : t
+        );
+      }
+
+      saveSnapshotToLocalStorage(folders, updated, dateRecords, salahRecords, stoppedState);
+      if (user && !user.uid.startsWith('guest_')) {
+        saveUserStudyDataToFirestore(user.uid, {
+          folders,
+          tasks: updated,
+          dateRecords,
+          salahRecords,
+          stopwatch: stoppedState,
+        }).catch(console.error);
+      }
+      return updated;
     });
+
+    try {
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.6 } });
+    } catch {}
   };
 
   const toggleStopwatch = (taskId?: string, folderId?: string) => {
-    if (stopwatch.isRunning) {
+    if (stopwatchRef.current.isRunning) {
       pauseStopwatch();
-    } else if (stopwatch.secondsElapsed > 0) {
+    } else if (stopwatchRef.current.secondsElapsed > 0) {
       // Resume current active timer
-      setStopwatch((prev) => ({
-        ...prev,
+      const resumedState: ActiveStopwatchState = {
+        ...stopwatchRef.current,
         isRunning: true,
         lastTimestamp: Date.now(),
-      }));
+      };
+      stopwatchRef.current = resumedState;
+      setStopwatch(resumedState);
     } else if (taskId && folderId) {
       startStopwatch(taskId, folderId);
     } else if (folderId) {
@@ -1164,14 +1236,30 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetStopwatch = () => {
-    setStopwatch({
+    if (saveTimeoutRef.current) {
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    const stoppedState: ActiveStopwatchState = {
       taskId: null,
       folderId: null,
       subjectName: null,
       isRunning: false,
       secondsElapsed: 0,
       lastTimestamp: Date.now(),
-    });
+    };
+    stopwatchRef.current = stoppedState;
+    setStopwatch(stoppedState);
+
+    saveSnapshotToLocalStorage(folders, tasks, dateRecords, salahRecords, stoppedState);
+    if (user && !user.uid.startsWith('guest_')) {
+      saveUserStudyDataToFirestore(user.uid, {
+        folders,
+        tasks,
+        dateRecords,
+        salahRecords,
+        stopwatch: stoppedState,
+      }).catch(console.error);
+    }
   };
 
   // Start New Day / Archive Today
