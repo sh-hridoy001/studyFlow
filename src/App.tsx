@@ -10,6 +10,7 @@ import { StudyHistory } from './components/StudyHistory';
 import { SalahTracker } from './components/SalahTracker';
 import { ActiveStopwatchBar } from './components/ActiveStopwatchBar';
 import { NewTaskModal } from './components/NewTaskModal';
+import { TaskDetailsModal } from './components/TaskDetailsModal';
 import { StartNewDayModal } from './components/StartNewDayModal';
 import { LogPastStudyModal } from './components/LogPastStudyModal';
 import { SyncCalendarModal } from './components/SyncCalendarModal';
@@ -25,6 +26,7 @@ function AppContent() {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [defaultFolder, setDefaultFolder] = useState<string | undefined>();
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
+  const [viewingTask, setViewingTask] = useState<DailyTask | null>(null);
   const [isResetDayOpen, setIsResetDayOpen] = useState(false);
   const [isLogPastOpen, setIsLogPastOpen] = useState(false);
   const [pastLogTargetDate, setPastLogTargetDate] = useState<string | undefined>();
@@ -45,6 +47,10 @@ function AppContent() {
     setIsAddTaskOpen(true);
   };
 
+  const handleViewTask = (task: DailyTask) => {
+    setViewingTask(task);
+  };
+
   const handleOpenLogPast = (dateKey: string) => {
     setPastLogTargetDate(dateKey);
     setIsLogPastOpen(true);
@@ -56,7 +62,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500 selection:text-white w-full overflow-x-hidden">
       {/* Top Header with User Profile, Salah tab, and Reset All Data option */}
       <Header
         onOpenAddTask={() => handleOpenAddTask()}
@@ -75,7 +81,7 @@ function AppContent() {
       )}
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden">
         {activeTab === 'routine' ? (
           <>
             {/* 1. Daily Overview Hero with Total Target vs Actual Study Time */}
@@ -88,10 +94,11 @@ function AppContent() {
             {/* 2. Dynamic Folder Cards & Subject Manager */}
             <FolderSummaryCards />
 
-            {/* 3. Daily Target Tasks List with Checkboxes & Interactive Stopwatch */}
+            {/* 3. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
             <TasksList
               onOpenAddTask={handleOpenAddTask}
               onEditTask={handleEditTask}
+              onViewTask={handleViewTask}
             />
           </>
         ) : activeTab === 'salah' ? (
@@ -111,17 +118,17 @@ function AppContent() {
 
       {/* Quiet Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 py-6 text-xs text-slate-500 dark:text-slate-400 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
             <span className="font-semibold text-slate-700 dark:text-slate-300">FocusTrack</span>
             <span aria-hidden="true">·</span>
             <span>Dynamic Study Planner & Salah Tracker</span>
           </div>
 
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap justify-center">
             <button
               onClick={() => setActiveTab('routine')}
-              className={`flex items-center gap-1.5 font-medium transition-colors ${
+              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
                 activeTab === 'routine' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -131,7 +138,7 @@ function AppContent() {
 
             <button
               onClick={() => setActiveTab('salah')}
-              className={`flex items-center gap-1.5 font-medium transition-colors ${
+              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
                 activeTab === 'salah' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -141,7 +148,7 @@ function AppContent() {
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-1.5 font-medium transition-colors ${
+              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
                 activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -151,7 +158,7 @@ function AppContent() {
 
             <button
               onClick={downloadSingleFileApp}
-              className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Single-File HTML</span>
@@ -159,7 +166,7 @@ function AppContent() {
 
             <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
               <Cloud className="w-3.5 h-3.5" />
-              <span>Firestore Synced</span>
+              <span>{syncStatus === 'synced' ? 'Synchronized' : syncStatus}</span>
             </div>
           </div>
         </div>
@@ -174,6 +181,14 @@ function AppContent() {
         }}
         defaultFolderId={defaultFolder}
         editingTask={editingTask}
+      />
+
+      {/* Task Details Modal (for View Task button and task row click) */}
+      <TaskDetailsModal
+        isOpen={!!viewingTask}
+        task={viewingTask}
+        onClose={() => setViewingTask(null)}
+        onEditTask={handleEditTask}
       />
 
       <StartNewDayModal
@@ -270,7 +285,7 @@ function AppRouter() {
     return <AuthScreen theme={theme} onToggleTheme={toggleTheme} />;
   }
 
-  // Signed in: show main study tracker connected to Firestore
+  // Signed in: show main study tracker connected to Firestore / Local Mode
   return (
     <StudyProvider>
       <AppContent />

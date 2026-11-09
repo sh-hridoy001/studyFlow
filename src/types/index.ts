@@ -1,5 +1,23 @@
 export type PrimaryFolderId = string;
 
+export interface ChapterNote {
+  id: string;
+  title: string;
+  notes?: string;
+  importantPoints?: string; // formulas, key takeaways, shortcuts
+  completed?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SubjectFolder {
+  id: string;
+  name: string;
+  description?: string;
+  chapters: ChapterNote[];
+  createdAt?: string;
+}
+
 export interface FolderDefinition {
   id: string;
   name: string;
@@ -11,6 +29,7 @@ export interface FolderDefinition {
   badgeClass?: string;
   icon?: string;
   subjects: string[]; // Dynamic sub-folders or subjects inside this folder
+  subjectFolders?: SubjectFolder[]; // Enhanced sub-folders with chapters & notes
 }
 
 export interface DailyTask {

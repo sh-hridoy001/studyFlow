@@ -171,11 +171,50 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             />
           </div>
 
-          {/* 3. Daily Topics */}
+          {/* 3. Daily Topics + Quick Pick Chapters */}
           <div>
-            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Today's Specific Topics or Target
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300">
+                Today's Specific Topics or Target
+              </label>
+            </div>
+
+            {/* Quick suggested chapters from this subject folder */}
+            {(() => {
+              const sf = currentFolder?.subjectFolders?.find(
+                (item) => item.name.toLowerCase() === subjectName.toLowerCase()
+              );
+              if (!sf || !sf.chapters || sf.chapters.length === 0) return null;
+
+              return (
+                <div className="flex flex-wrap gap-1.5 mb-2 p-2 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700/60">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider w-full mb-0.5">
+                    Select Chapter / Note:
+                  </span>
+                  {sf.chapters.map((ch) => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => {
+                        setTopics(ch.title);
+                        if (ch.importantPoints && !notes) {
+                          setNotes(`Key Focus: ${ch.importantPoints.slice(0, 120)}`);
+                        }
+                      }}
+                      className={`text-[10px] px-2 py-0.5 rounded-lg border transition-all text-left truncate max-w-[200px] ${
+                        topics === ch.title
+                          ? 'bg-indigo-600 text-white border-transparent font-bold'
+                          : 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/60'
+                      }`}
+                      title={ch.title}
+                    >
+                      {ch.title}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
             <input
               type="text"
               placeholder="e.g. Chapter 4 Virtual Memory & Page Tables practice set"

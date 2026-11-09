@@ -2,18 +2,21 @@ import React, { useState } from 'react';
 import { useStudy } from '../context/StudyContext';
 import { FolderDefinition } from '../types';
 import { FOLDER_COLOR_PRESETS } from '../utils/folderConstants';
-import { X, Plus, Trash2, Edit3, FolderPlus, Check, Sparkles } from 'lucide-react';
+import { X, Plus, Trash2, Edit3, FolderPlus, Check, Sparkles, BookOpen, FileText, ChevronRight } from 'lucide-react';
+import { SubjectWorkspaceModal } from './SubjectWorkspaceModal';
 
 interface FolderManageModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialEditingFolderId?: string;
+  initialFolderId?: string;
 }
 
 export const FolderManageModal: React.FC<FolderManageModalProps> = ({
   isOpen,
   onClose,
   initialEditingFolderId,
+  initialFolderId,
 }) => {
   const {
     folders,
@@ -24,8 +27,10 @@ export const FolderManageModal: React.FC<FolderManageModalProps> = ({
     deleteSubjectFromFolder,
   } = useStudy();
 
+  const effectiveInitialId = initialEditingFolderId || initialFolderId;
+
   // Mode: 'list' | 'add' | 'edit'
-  const [activeFolderId, setActiveFolderId] = useState<string | null>(initialEditingFolderId || null);
+  const [activeFolderId, setActiveFolderId] = useState<string | null>(effectiveInitialId || folders[0]?.id || null);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
 
   // Form states
@@ -34,9 +39,19 @@ export const FolderManageModal: React.FC<FolderManageModalProps> = ({
   const [folderColor, setFolderColor] = useState('#4F46E5');
   const [newSubjectInput, setNewSubjectInput] = useState('');
 
+  // Workspace modal for chapters & notes
+  const [workspaceSubject, setWorkspaceSubject] = useState<{ folderId: string; subjectName: string } | null>(null);
+
+  // Synchronize folder form only when activeFolderId changes or modal opens
   React.useEffect(() => {
-    if (initialEditingFolderId) {
-      const f = folders.find((item) => item.id === initialEditingFolderId);
+    if (!isOpen) {
+      setIsCreatingNew(false);
+      return;
+    }
+
+    const targetId = effectiveInitialId || activeFolderId || folders[0]?.id || null;
+    if (targetId) {
+      const f = folders.find((item) => String(item.id) === String(targetId));
       if (f) {
         setActiveFolderId(f.id);
         setFolderName(f.name);
@@ -44,11 +59,8 @@ export const FolderManageModal: React.FC<FolderManageModalProps> = ({
         setFolderColor(f.color || '#4F46E5');
         setIsCreatingNew(false);
       }
-    } else {
-      setIsCreatingNew(false);
-      setActiveFolderId(null);
     }
-  }, [initialEditingFolderId, isOpen, folders]);
+  }, [isOpen, effectiveInitialId]);
 
   if (!isOpen) return null;
 
@@ -346,30 +358,69 @@ export const FolderManageModal: React.FC<FolderManageModalProps> = ({
                 </button>
               </form>
 
-              {/* Chips List of Subjects */}
-              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto pt-1">
+              {/* List of Subjects as Sub-Folders */}
+              <div className="space-y-2 max-h-56 overflow-y-auto pt-1 pr-1">
                 {(currentFolder.subjects || []).length === 0 ? (
-                  <div className="text-slate-400 italic text-[11px] py-2">
-                    No subjects added yet. Type a subject above to add it.
+                  <div className="text-slate-400 italic text-[11px] py-4 text-center bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                    No subjects added yet. Type a subject name above to add it to this folder.
                   </div>
                 ) : (
-                  currentFolder.subjects.map((subj) => (
-                    <div
-                      key={subj}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-semibold group"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentFolder.color }} />
-                      <span>{subj}</span>
-                      <button
-                        type="button"
-                        onClick={() => deleteSubjectFromFolder(currentFolder.id, subj)}
-                        className="text-slate-400 hover:text-rose-500 ml-1 rounded p-0.5 transition-colors"
-                        title="Delete subject"
+                  currentFolder.subjects.map((subj) => {
+                    const sf = currentFolder.subjectFolders?.find(
+                      (item) => item.name.toLowerCase() === subj.toLowerCase()
+                    );
+                    const chapterCount = sf?.chapters?.length || 0;
+
+                    return (
+                      <div
+                        key={subj}
+                        className="flex items-center justify-between gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 text-xs hover:border-slate-300 dark:hover:border-slate-600 transition-all"
                       >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: currentFolder.color }}
+                          />
+                          <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                            {subj}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-400 bg-slate-200/60 dark:bg-slate-700/60 px-2 py-0.5 rounded-md shrink-0">
+                            {chapterCount} {chapterCount === 1 ? 'chapter' : 'chapters'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWorkspaceSubject({
+                                folderId: currentFolder.id,
+                                subjectName: subj,
+                              })
+                            }
+                            className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 font-bold rounded-lg text-[11px] transition-colors cursor-pointer shadow-2xs"
+                            title="Open Chapters & Notes Notebook"
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                            <span>Notes & Chapters</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`Remove "${subj}" and its chapters from "${currentFolder.name}"?`)) {
+                                deleteSubjectFromFolder(currentFolder.id, subj);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Delete subject"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -390,12 +441,22 @@ export const FolderManageModal: React.FC<FolderManageModalProps> = ({
         <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors text-xs"
+            className="px-5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors text-xs cursor-pointer"
           >
             Done
           </button>
         </div>
       </div>
+
+      {/* Subject Workspace Modal for Chapters & Notes */}
+      {workspaceSubject && (
+        <SubjectWorkspaceModal
+          isOpen={!!workspaceSubject}
+          folderId={workspaceSubject.folderId}
+          subjectName={workspaceSubject.subjectName}
+          onClose={() => setWorkspaceSubject(null)}
+        />
+      )}
     </div>
   );
 };

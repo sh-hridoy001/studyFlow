@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStudy } from '../context/StudyContext';
-import { PrimaryFolderId, DateStudyRecord } from '../types';
+import { PrimaryFolderId, DateStudyRecord, DailyTask } from '../types';
 import { PRIMARY_FOLDERS } from '../utils/folderConstants';
 import {
   formatDuration,
@@ -24,7 +24,9 @@ import {
   GraduationCap,
   Target,
   Languages,
+  Eye,
 } from 'lucide-react';
+import { TaskDetailsModal } from './TaskDetailsModal';
 
 interface StudyHistoryProps {
   onOpenLogPastModal: (dateKey: string) => void;
@@ -46,6 +48,8 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
     streakDays,
     folders,
   } = useStudy();
+
+  const [viewingPastTask, setViewingPastTask] = useState<DailyTask | null>(null);
 
   // Summary period selector: 'week' | 'month' | 'all'
   const [summaryView, setSummaryView] = useState<'week' | 'month'>('week');
@@ -580,14 +584,17 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                       };
                     return (
                       <div
-                        key={task.id}
+                        key={String(task.id)}
                         className={`p-3.5 bg-slate-50 dark:bg-slate-800/50 border rounded-xl flex items-center justify-between gap-3 text-xs ${
                           task.completed
                             ? 'border-slate-200 dark:border-slate-800'
                             : 'border-slate-200 dark:border-slate-800'
                         }`}
                       >
-                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        <div
+                          className="flex items-start gap-2.5 min-w-0 flex-1 cursor-pointer"
+                          onClick={() => setViewingPastTask(task as unknown as DailyTask)}
+                        >
                           <CheckCircle2
                             className={`w-4 h-4 mt-0.5 shrink-0 ${
                               task.completed
@@ -598,7 +605,7 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span
-                                className={`font-semibold ${
+                                className={`font-semibold hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors ${
                                   task.completed
                                     ? 'line-through text-slate-400 dark:text-slate-500'
                                     : 'text-slate-900 dark:text-white'
@@ -623,7 +630,7 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                           <div className="text-right font-mono">
                             <div className="font-bold text-slate-900 dark:text-white">
                               {formatDuration(task.actualMinutes)}
@@ -634,15 +641,25 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
                           </div>
 
                           <button
+                            type="button"
+                            onClick={() => setViewingPastTask(task as unknown as DailyTask)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 rounded-lg transition-colors"
+                            title="View task details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => {
                               if (confirm(`Remove "${task.subjectName}" from this day's log?`)) {
-                                deletePastTaskRecord(selectedHistoryDate, task.id);
+                                deletePastTaskRecord(selectedHistoryDate, String(task.id));
                               }
                             }}
-                            className="p-1 text-slate-400 hover:text-rose-500 rounded transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                             title="Remove log entry"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -654,6 +671,13 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
           )}
         </div>
       </div>
+
+      {/* Task Details Modal for past records */}
+      <TaskDetailsModal
+        isOpen={!!viewingPastTask}
+        task={viewingPastTask}
+        onClose={() => setViewingPastTask(null)}
+      />
     </div>
   );
 };

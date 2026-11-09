@@ -9,7 +9,6 @@ import {
 } from '../utils/dateUtils';
 import {
   CheckCircle2,
-  Circle,
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
@@ -112,30 +111,30 @@ export const SalahTracker: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 w-full overflow-x-hidden">
       {/* Hero Overview Card */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs relative overflow-hidden">
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-8 shadow-xs relative overflow-hidden">
         {/* Subtle accent backdrop */}
         <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex-wrap">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shrink-0" />
               <span>Daily Salah Tracker</span>
               <span aria-hidden="true">·</span>
               <span>5 Obligatory Daily Prayers</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1 tracking-tight">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1 tracking-tight">
               {formatFullDate(selectedSalahDate)}
             </h1>
           </div>
 
           {/* Date Selector Navigation */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <button
               onClick={() => stepDate(-1)}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
               title="Previous Day"
               aria-label="Previous Day"
             >
@@ -145,7 +144,7 @@ export const SalahTracker: React.FC = () => {
             {!isToday(selectedSalahDate) && (
               <button
                 onClick={jumpToToday}
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors"
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors cursor-pointer shrink-0"
               >
                 Today
               </button>
@@ -153,7 +152,7 @@ export const SalahTracker: React.FC = () => {
 
             <button
               onClick={() => stepDate(1)}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer shrink-0"
               title="Next Day"
               aria-label="Next Day"
             >
@@ -167,20 +166,20 @@ export const SalahTracker: React.FC = () => {
                 onChange={(e) => {
                   if (e.target.value) setSelectedSalahDate(e.target.value);
                 }}
-                className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 font-mono font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-2 sm:px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 font-mono font-medium focus:ring-1 focus:ring-indigo-500 cursor-pointer"
               />
             </div>
           </div>
         </div>
 
         {/* Big Metrics Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-6 items-end mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-5 sm:gap-6 items-end mb-6">
           <div className="sm:col-span-7">
             <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block mb-1">
               Daily Prayer Completion
             </span>
-            <div className="flex items-baseline gap-3">
-              <span className="text-5xl sm:text-6xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span className="text-4xl sm:text-6xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white">
                 {completedCount}{' '}
                 <span className="text-2xl sm:text-3xl font-sans text-slate-400 font-normal">/ 5</span>
               </span>
@@ -197,13 +196,13 @@ export const SalahTracker: React.FC = () => {
             </div>
           </div>
 
-          <div className="sm:col-span-5 flex items-center justify-start sm:justify-end gap-6 text-xs">
+          <div className="sm:col-span-5 flex items-center justify-start sm:justify-end gap-5 sm:gap-6 text-xs flex-wrap">
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center">
-                <Flame className="w-5 h-5" />
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-500 flex items-center justify-center shrink-0">
+                <Flame className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <div className="font-mono font-bold text-base text-slate-900 dark:text-white">
+                <div className="font-mono font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                   {salahStreakDays} {salahStreakDays === 1 ? 'day' : 'days'}
                 </div>
                 <div className="text-[11px] text-slate-400">Full Prayer Streak</div>
@@ -211,11 +210,11 @@ export const SalahTracker: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <Award className="w-5 h-5" />
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <Award className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <div className="font-mono font-bold text-base text-slate-900 dark:text-white">
+                <div className="font-mono font-bold text-sm sm:text-base text-slate-900 dark:text-white">
                   {percent}%
                 </div>
                 <div className="text-[11px] text-slate-400">Daily Target</div>
@@ -242,7 +241,7 @@ export const SalahTracker: React.FC = () => {
       </section>
 
       {/* 5 Daily Prayer Cards Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4 w-full">
         {prayers.map((prayer) => {
           const isDone = record[prayer.key];
           const IconComponent = prayer.icon;
@@ -251,7 +250,7 @@ export const SalahTracker: React.FC = () => {
             <div
               key={prayer.key}
               onClick={() => toggleSalahPrayer(selectedSalahDate, prayer.key)}
-              className={`cursor-pointer group relative bg-white dark:bg-slate-900 border rounded-3xl p-5 transition-all duration-200 select-none shadow-xs hover:shadow-md flex flex-col justify-between ${
+              className={`cursor-pointer group relative bg-white dark:bg-slate-900 border rounded-3xl p-4 sm:p-5 transition-all duration-200 select-none shadow-xs hover:shadow-md flex flex-col justify-between ${
                 isDone
                   ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/20 dark:bg-emerald-950/20'
                   : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
@@ -265,10 +264,10 @@ export const SalahTracker: React.FC = () => {
                 {/* Top Prayer Icon and Arabic Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div
-                    className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-white shadow-xs"
                     style={{ backgroundColor: isDone ? '#10B981' : prayer.color }}
                   >
-                    <IconComponent className="w-5 h-5" />
+                    <IconComponent className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <span className="text-xs font-semibold text-slate-400 font-mono">
                     {prayer.arabicName}
@@ -276,7 +275,7 @@ export const SalahTracker: React.FC = () => {
                 </div>
 
                 {/* Prayer Title & Timing */}
-                <h3 className="font-extrabold text-lg text-slate-900 dark:text-white leading-tight">
+                <h3 className="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white leading-tight">
                   {prayer.name}
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
@@ -285,7 +284,7 @@ export const SalahTracker: React.FC = () => {
               </div>
 
               {/* Completion Button & Visual Checkmark */}
-              <div className="mt-5 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                 <span
                   className={`text-xs font-bold transition-colors ${
                     isDone
@@ -312,7 +311,7 @@ export const SalahTracker: React.FC = () => {
       </section>
 
       {/* Optional Daily Reflection / Du'a Notes */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs">
+      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
         <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
           Daily Dhikr & Prayer Reflection (Optional)
         </label>
@@ -321,7 +320,7 @@ export const SalahTracker: React.FC = () => {
           value={record.notes || ''}
           onChange={(e) => updateSalahNotes(selectedSalahDate, e.target.value)}
           placeholder="e.g. Read Surah Al-Kahf, offered Sunnah prayers, attended Dhuhr in congregation..."
-          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+          className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 resize-y"
         />
       </section>
     </div>

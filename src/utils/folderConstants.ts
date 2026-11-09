@@ -28,6 +28,85 @@ export const DEFAULT_DYNAMIC_FOLDERS: FolderDefinition[] = [
       'Algorithms & Data Structures',
       'Operating Systems',
     ],
+    subjectFolders: [
+      {
+        id: 'subj-acad-1',
+        name: 'Computer Systems Architecture',
+        description: 'Pipelining, memory hierarchy, cache coherence, CPU design',
+        chapters: [
+          {
+            id: 'chap-csa-1',
+            title: 'Instruction Set Architecture (ISA) & RISC vs CISC',
+            notes: 'MIPS registers: $zero always 0. R-type format: opcode (6), rs (5), rt (5), rd (5), shamt (5), funct (6). Branch instructions use PC-relative addressing.',
+            importantPoints: 'Formula: CPU Time = Instruction Count × CPI × Clock Cycle Time.\nSpeedup = Execution Time (Old) / Execution Time (New).',
+            completed: true,
+          },
+          {
+            id: 'chap-csa-2',
+            title: 'Pipelining Hazards & Branch Prediction',
+            notes: 'Structural, Data (RAW, WAR, WAW), and Control hazards. Forwarding resolves data hazards without stalling when possible.',
+            importantPoints: 'Branches cause 1-3 stall cycles unless dynamic 2-bit branch predictor is used.',
+            completed: false,
+          },
+          {
+            id: 'chap-csa-3',
+            title: 'Cache Memory & Virtual Memory',
+            notes: 'Direct mapped, N-way set associative, fully associative. Cache line size trade-offs (spatial vs temporal locality).',
+            importantPoints: 'AMAT = Hit Time + (Miss Rate × Miss Penalty).\nPage Table Size = Number of Virtual Pages × PTE size.',
+            completed: false,
+          },
+        ],
+      },
+      {
+        id: 'subj-acad-2',
+        name: 'Linear Algebra & Optimization',
+        description: 'Vector spaces, eigenvalues, SVD, convex optimization',
+        chapters: [
+          {
+            id: 'chap-la-1',
+            title: 'Eigenvalues, Eigenvectors & Diagonalization',
+            notes: 'Det(A - λI) = 0 yields characteristic polynomial. If A has n linearly independent eigenvectors, A = PDP^-1.',
+            importantPoints: 'Trace(A) = sum of eigenvalues.\nDeterminant(A) = product of eigenvalues.',
+            completed: true,
+          },
+          {
+            id: 'chap-la-2',
+            title: 'Singular Value Decomposition (SVD)',
+            notes: 'Every matrix A (m x n) has SVD: A = U Σ V^T. Columns of U are left singular vectors, columns of V are right singular vectors.',
+            importantPoints: 'A^T A has eigenvalues σ_i^2. Useful for PCA and low-rank matrix approximation.',
+            completed: false,
+          },
+        ],
+      },
+      {
+        id: 'subj-acad-3',
+        name: 'Algorithms & Data Structures',
+        description: 'Dynamic programming, graph algorithms, divide & conquer',
+        chapters: [
+          {
+            id: 'chap-algo-1',
+            title: 'Dynamic Programming & Memoization',
+            notes: 'Identify optimal substructure and overlapping subproblems. Define state DP[i][j], recurrence relation, and base cases.',
+            importantPoints: '0/1 Knapsack: DP[i][w] = max(DP[i-1][w], DP[i-1][w-wt[i]] + val[i]). Time O(n*W).',
+            completed: false,
+          },
+        ],
+      },
+      {
+        id: 'subj-acad-4',
+        name: 'Operating Systems',
+        description: 'Process synchronization, scheduling, virtual memory, concurrency',
+        chapters: [
+          {
+            id: 'chap-os-1',
+            title: 'Process Synchronization & Semaphores',
+            notes: 'Race conditions occur in critical sections. Mutual exclusion, progress, bounded waiting must be guaranteed.',
+            importantPoints: 'Semaphores: wait(S) decrements, signal(S) increments atomically. Avoid deadlocks (Coffman conditions).',
+            completed: false,
+          },
+        ],
+      },
+    ],
   },
   {
     id: 'admission',
@@ -44,6 +123,55 @@ export const DEFAULT_DYNAMIC_FOLDERS: FolderDefinition[] = [
       'Verbal Strategy & Logic',
       'Mock Exam Practice',
       'Analytical Writing',
+    ],
+    subjectFolders: [
+      {
+        id: 'subj-adm-1',
+        name: 'Quantitative Reasoning',
+        description: 'Arithmetic, Algebra, Geometry, Data Analysis',
+        chapters: [
+          {
+            id: 'chap-quant-1',
+            title: 'Permutations, Combinations & Probability',
+            notes: 'Order matters: P(n, r) = n! / (n-r)!. Order does NOT matter: C(n, r) = n! / (r!(n-r)!). Complement rule: P(At least 1) = 1 - P(None).',
+            importantPoints: 'Circular arrangement: (n - 1)!\nDividing into identical groups: divide by group factorial.',
+            completed: false,
+          },
+          {
+            id: 'chap-quant-2',
+            title: 'Work, Rate & Speed Problems',
+            notes: 'Work = Rate × Time. If A takes x days and B takes y days, combined rate = (1/x + 1/y) per day.',
+            importantPoints: 'Average Speed = Total Distance / Total Time (NOT the average of speeds!).',
+            completed: true,
+          },
+        ],
+      },
+      {
+        id: 'subj-adm-2',
+        name: 'Verbal Strategy & Logic',
+        description: 'Text completion, sentence equivalence, reading comprehension',
+        chapters: [
+          {
+            id: 'chap-verb-1',
+            title: 'Text Completion Pivot Words & Tone Analysis',
+            notes: 'Look for contrast pivots (however, despite, nonetheless) vs support pivots (furthermore, indeed, similarly). Read whole sentence before looking at choices.',
+            importantPoints: 'Eliminate options with extreme emotional charges unless passage warrants it.',
+            completed: false,
+          },
+        ],
+      },
+      {
+        id: 'subj-adm-3',
+        name: 'Mock Exam Practice',
+        description: 'Full-length timed mock tests and diagnostic reviews',
+        chapters: [],
+      },
+      {
+        id: 'subj-adm-4',
+        name: 'Analytical Writing',
+        description: 'Issue essay templates, argument analysis logic',
+        chapters: [],
+      },
     ],
   },
   {
@@ -62,8 +190,78 @@ export const DEFAULT_DYNAMIC_FOLDERS: FolderDefinition[] = [
       'Writing Task 2',
       'Listening Drills',
     ],
+    subjectFolders: [
+      {
+        id: 'subj-eng-1',
+        name: 'IELTS Academic Reading',
+        description: 'Skimming, scanning, True/False/Not Given, Heading Matching',
+        chapters: [
+          {
+            id: 'chap-read-1',
+            title: 'True / False / Not Given Strategy',
+            notes: 'TRUE: matches exactly with passage meaning. FALSE: contradicts or negates passage statement. NOT GIVEN: passage does not state or neither confirms nor denies.',
+            importantPoints: 'Watch out for 100% qualifiers (always, never, only, all) vs partial qualifiers (often, usually, some).',
+            completed: true,
+          },
+        ],
+      },
+      {
+        id: 'subj-eng-2',
+        name: 'Speaking & Active Vocabulary',
+        description: 'Idiomatic expressions, fluency fillers, discourse markers',
+        chapters: [
+          {
+            id: 'chap-speak-1',
+            title: 'Part 2 Cue Card Structure & Complex Connectors',
+            notes: 'Use PPF technique (Past, Present, Future) to speak for full 2 minutes without stopping.',
+            importantPoints: 'Key phrases: "Looking back at that moment...", "What struck me most was...", "Had I known then...".',
+            completed: false,
+          },
+        ],
+      },
+      {
+        id: 'subj-eng-3',
+        name: 'Writing Task 2',
+        description: 'Opinion essays, discussion essays, problem-solution',
+        chapters: [],
+      },
+      {
+        id: 'subj-eng-4',
+        name: 'Listening Drills',
+        description: 'Section 4 monologues, map labeling, spelling trap alerts',
+        chapters: [],
+      },
+    ],
   },
 ];
+
+// Helper to ensure any folder has synchronized subjectFolders and subjects
+export function ensureFolderSubjectStructure(folder: FolderDefinition): FolderDefinition {
+  const currentSubjects = folder.subjects || [];
+  let subjectFolders = folder.subjectFolders || [];
+
+  // Guarantee each subject string has a matching SubjectFolder object
+  const existingNames = new Set(subjectFolders.map((sf) => sf.name));
+  const mergedSubjectFolders = [...subjectFolders];
+
+  currentSubjects.forEach((subjName) => {
+    if (!existingNames.has(subjName)) {
+      mergedSubjectFolders.push({
+        id: `subj-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        name: subjName,
+        chapters: [],
+        createdAt: new Date().toISOString(),
+      });
+      existingNames.add(subjName);
+    }
+  });
+
+  return {
+    ...folder,
+    subjects: currentSubjects,
+    subjectFolders: mergedSubjectFolders,
+  };
+}
 
 export const PRIMARY_FOLDERS: Record<string, FolderDefinition> = DEFAULT_DYNAMIC_FOLDERS.reduce(
   (acc, f) => ({ ...acc, [f.id]: f }),
