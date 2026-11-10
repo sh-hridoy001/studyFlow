@@ -17,6 +17,9 @@ import { LogPastStudyModal } from './components/LogPastStudyModal';
 import { SyncCalendarModal } from './components/SyncCalendarModal';
 import { CalendarSettingsModal } from './components/CalendarSettingsModal';
 import { ResetAllDataModal } from './components/ResetAllDataModal';
+import { MilestoneCountdownWidget } from './components/MilestoneCountdownWidget';
+import { ConsistencyHeatmap } from './components/ConsistencyHeatmap';
+import { ExportReportModal } from './components/ExportReportModal';
 import { DailyTask } from './types';
 import { Cloud, Calendar, Download, Loader2, Timer, Moon, CheckSquare } from 'lucide-react';
 import { downloadSingleFileApp } from './utils/singleFileGenerator';
@@ -42,6 +45,7 @@ function AppContent() {
   const [syncCalendarTargetDate, setSyncCalendarTargetDate] = useState<string | undefined>();
   const [isCalendarSettingsOpen, setIsCalendarSettingsOpen] = useState(false);
   const [isResetAllOpen, setIsResetAllOpen] = useState(false);
+  const [isExportReportOpen, setIsExportReportOpen] = useState(false);
 
   const handleOpenAddTask = (folderId?: string) => {
     setDefaultFolder(folderId);
@@ -78,6 +82,7 @@ function AppContent() {
         onOpenSyncCalendar={() => handleOpenSyncCalendar()}
         onOpenCalendarSettings={() => setIsCalendarSettingsOpen(true)}
         onOpenResetAllData={() => setIsResetAllOpen(true)}
+        onOpenExportReport={() => setIsExportReportOpen(true)}
       />
 
       {/* Sticky Active Stopwatch Bar right below the Navigation Bar (No Netlify overlay conflict!) */}
@@ -112,26 +117,35 @@ function AppContent() {
                 onOpenSyncCalendar={() => handleOpenSyncCalendar()}
               />
 
-              {/* 2. Dynamic Folder Cards & Subject Manager */}
+              {/* 2. Upcoming Exam & Milestone Countdown Widget */}
+              <MilestoneCountdownWidget />
+
+              {/* 3. Dynamic Folder Cards & Subject Manager */}
               <FolderSummaryCards />
 
-              {/* 3. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
+              {/* 4. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
               <TasksList
                 onOpenAddTask={handleOpenAddTask}
                 onEditTask={handleEditTask}
                 onViewTask={handleViewTask}
               />
+
+              {/* 5. 35-Day Consistency Heatmap & Streak */}
+              <ConsistencyHeatmap />
             </>
           )
         ) : activeTab === 'salah' ? (
           /* 5-Time Daily Salah Tracker Section */
           <SalahTracker />
         ) : (
-          /* Study History & Past Records Section */
-          <StudyHistory
-            onOpenLogPastModal={handleOpenLogPast}
-            onOpenSyncCalendar={(dateKey) => handleOpenSyncCalendar(dateKey)}
-          />
+          /* Study History & Past Records Section with Consistency Heatmap */
+          <div className="space-y-6">
+            <ConsistencyHeatmap />
+            <StudyHistory
+              onOpenLogPastModal={handleOpenLogPast}
+              onOpenSyncCalendar={(dateKey) => handleOpenSyncCalendar(dateKey)}
+            />
+          </div>
         )}
       </main>
 
@@ -248,6 +262,12 @@ function AppContent() {
       <ResetAllDataModal
         isOpen={isResetAllOpen}
         onClose={() => setIsResetAllOpen(false)}
+      />
+
+      {/* Export Printable Study Summary & Chapter Notes Modal */}
+      <ExportReportModal
+        isOpen={isExportReportOpen}
+        onClose={() => setIsExportReportOpen(false)}
       />
     </div>
   );

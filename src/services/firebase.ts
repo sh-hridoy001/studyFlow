@@ -22,6 +22,7 @@ import {
   ActiveStopwatchState,
   FolderDefinition,
   DailySalahRecord,
+  MilestoneGoal,
 } from '../types';
 import { DEFAULT_DYNAMIC_FOLDERS } from '../utils/folderConstants';
 
@@ -114,6 +115,7 @@ export interface UserStudyDataPayload {
   tasks: DailyTask[];
   dateRecords: Record<string, DateStudyRecord>;
   salahRecords?: Record<string, DailySalahRecord>;
+  milestones?: MilestoneGoal[];
   stopwatch?: ActiveStopwatchState;
   lastUpdated: string;
   userEmail?: string | null;
@@ -130,6 +132,7 @@ export async function saveUserStudyDataToFirestore(
     tasks: DailyTask[];
     dateRecords: Record<string, DateStudyRecord>;
     salahRecords?: Record<string, DailySalahRecord>;
+    milestones?: MilestoneGoal[];
     stopwatch?: ActiveStopwatchState;
   }
 ): Promise<void> {
@@ -140,6 +143,7 @@ export async function saveUserStudyDataToFirestore(
       tasks: data.tasks,
       dateRecords: data.dateRecords,
       salahRecords: data.salahRecords || {},
+      milestones: data.milestones || [],
       stopwatch: data.stopwatch,
       lastUpdated: new Date().toISOString(),
       userEmail: auth.currentUser?.email || null,

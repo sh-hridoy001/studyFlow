@@ -10,6 +10,7 @@ import {
   SalahPrayerName,
   ChapterNote,
   SubjectFolder,
+  MilestoneGoal,
 } from '../types';
 import { DEFAULT_DYNAMIC_FOLDERS, ensureFolderSubjectStructure } from '../utils/folderConstants';
 import {
@@ -160,6 +161,19 @@ interface StudyContextType {
   allTimeTotalMinutes: number;
   streakDays: number;
 
+  // Upcoming Exam & Goal Countdown Targets
+  milestones: MilestoneGoal[];
+  addMilestone: (data: {
+    title: string;
+    targetDate: string;
+    targetDailyHours?: number;
+    category?: string;
+    notes?: string;
+  }) => void;
+  updateMilestone: (id: string, updates: Partial<MilestoneGoal>) => void;
+  deleteMilestone: (id: string) => void;
+  toggleMilestoneCompleted: (id: string) => void;
+
   // Theme
   theme: 'light' | 'dark';
   toggleTheme: () => void;
@@ -297,6 +311,24 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Daily Salah records
   const [salahRecords, setSalahRecords] = useState<Record<string, DailySalahRecord>>(initialData.salahRecords);
 
+  // Upcoming Exam & Milestone Countdown Targets
+  const DEFAULT_MILESTONES: MilestoneGoal[] = [
+    {
+      id: 'default-milestone-1',
+      title: 'Target Exam / Final Review',
+      targetDate: (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 25);
+        return toDateKey(d);
+      })(),
+      targetDailyHours: 4,
+      category: 'Academic',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  const [milestones, setMilestones] = useState<MilestoneGoal[]>(DEFAULT_MILESTONES);
+
   // Cloud Sync state
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('synced');
   const [isDataLoading, setIsDataLoading] = useState<boolean>(false);
@@ -331,13 +363,15 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       currentTasks: DailyTask[],
       currentDateRecords: Record<string, DateStudyRecord>,
       currentSalahRecords: Record<string, DailySalahRecord>,
-      customStopwatch?: ActiveStopwatchState
+      customStopwatch?: ActiveStopwatchState,
+      currentMilestones?: MilestoneGoal[]
     ) => {
       const payload = {
         folders: currentFolders,
         tasks: currentTasks,
         dateRecords: currentDateRecords,
         salahRecords: currentSalahRecords,
+        milestones: currentMilestones || milestones,
         // In persistent storage, timer is always stored with isRunning: false
         stopwatch: customStopwatch || { ...stopwatchRef.current, isRunning: false },
       };
@@ -351,7 +385,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       safeStorageSet('focustrack_active_data', payload);
     },
-    [user]
+    [user, milestones]
   );
 
   // Push changes to Firestore (or LocalStorage if Guest) with debouncing & safety
@@ -361,10 +395,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       newTasks: DailyTask[],
       newDateRecords: Record<string, DateStudyRecord>,
       newSalahRecords: Record<string, DailySalahRecord>,
-      customStopwatch?: ActiveStopwatchState
+      customStopwatch?: ActiveStopwatchState,
+      newMilestones?: MilestoneGoal[]
     ) => {
       // 1. Immediately persist to localStorage so refresh never loses data!
-      saveSnapshotToLocalStorage(newFolders, newTasks, newDateRecords, newSalahRecords, customStopwatch);
+      saveSnapshotToLocalStorage(newFolders, newTasks, newDateRecords, newSalahRecords, customStopwatch, newMilestones);
 
       if (!user) return;
 
@@ -388,6 +423,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             tasks: newTasks,
             dateRecords: newDateRecords,
             salahRecords: newSalahRecords,
+            milestones: newMilestones || milestones,
             stopwatch: swToSave,
           });
           setSyncStatus('synced');
@@ -397,7 +433,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }, 500);
     },
-    [user, saveSnapshotToLocalStorage]
+    [user, milestones, saveSnapshotToLocalStorage]
   );
 
   // Load and subscribe to data when user state changes
@@ -448,6 +484,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (Array.isArray(localUserCache.tasks)) setTasks(localUserCache.tasks);
       if (localUserCache.dateRecords && typeof localUserCache.dateRecords === 'object') setDateRecords(localUserCache.dateRecords);
       if (localUserCache.salahRecords && typeof localUserCache.salahRecords === 'object') setSalahRecords(localUserCache.salahRecords);
+      if (Array.isArray(localUserCache.milestones)) setMilestones(localUserCache.milestones);
     }
 
     setIsDataLoading(true);
@@ -463,11 +500,13 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const updatedTasks = Array.isArray(cloudData.tasks) ? cloudData.tasks : [];
           const updatedRecords = cloudData.dateRecords && typeof cloudData.dateRecords === 'object' ? cloudData.dateRecords : {};
           const updatedSalah = cloudData.salahRecords && typeof cloudData.salahRecords === 'object' ? cloudData.salahRecords : {};
+          const updatedMilestones = Array.isArray(cloudData.milestones) ? cloudData.milestones : DEFAULT_MILESTONES;
 
           setFolders(updatedFolders);
           setTasks(updatedTasks);
           setDateRecords(updatedRecords);
           setSalahRecords(updatedSalah);
+          setMilestones(updatedMilestones);
 
           // Never override active local stopwatch from remote Firestore snapshot!
           // The local stopwatch is interactive user UI state and must never auto-restart from snapshot events.
@@ -478,6 +517,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             tasks: updatedTasks,
             dateRecords: updatedRecords,
             salahRecords: updatedSalah,
+            milestones: updatedMilestones,
             stopwatch: { ...stopwatchRef.current, isRunning: false },
           });
 
@@ -1262,6 +1302,55 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Milestone / Exam Countdown operations
+  const addMilestone = (data: {
+    title: string;
+    targetDate: string;
+    targetDailyHours?: number;
+    category?: string;
+    notes?: string;
+  }) => {
+    const newM: MilestoneGoal = {
+      id: `milestone-${Date.now()}`,
+      title: data.title.trim(),
+      targetDate: data.targetDate,
+      targetDailyHours: data.targetDailyHours || 3,
+      category: data.category || 'General',
+      completed: false,
+      notes: data.notes?.trim() || undefined,
+      createdAt: new Date().toISOString(),
+    };
+    setMilestones((prev) => {
+      const next = [...prev, newM];
+      scheduleSaveToFirestore(folders, tasks, dateRecords, salahRecords, undefined, next);
+      return next;
+    });
+  };
+
+  const updateMilestone = (id: string, updates: Partial<MilestoneGoal>) => {
+    setMilestones((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, ...updates } : m));
+      scheduleSaveToFirestore(folders, tasks, dateRecords, salahRecords, undefined, next);
+      return next;
+    });
+  };
+
+  const deleteMilestone = (id: string) => {
+    setMilestones((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      scheduleSaveToFirestore(folders, tasks, dateRecords, salahRecords, undefined, next);
+      return next;
+    });
+  };
+
+  const toggleMilestoneCompleted = (id: string) => {
+    setMilestones((prev) => {
+      const next = prev.map((m) => (m.id === id ? { ...m, completed: !m.completed } : m));
+      scheduleSaveToFirestore(folders, tasks, dateRecords, salahRecords, undefined, next);
+      return next;
+    });
+  };
+
   // Start New Day / Archive Today
   const startNewDay = (archiveFirst = true) => {
     const today = toDateKey(new Date());
@@ -1688,6 +1777,11 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         monthlySummary,
         allTimeTotalMinutes,
         streakDays,
+        milestones,
+        addMilestone,
+        updateMilestone,
+        deleteMilestone,
+        toggleMilestoneCompleted,
         theme,
         toggleTheme,
       }}

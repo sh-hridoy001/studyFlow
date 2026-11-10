@@ -97,3 +97,15 @@ export interface DailySalahRecord {
 }
 
 export type ActiveMainTab = 'routine' | 'salah' | 'history';
+
+// Upcoming Exam & Goal Countdown Targets
+export interface MilestoneGoal {
+  id: string;
+  title: string; // e.g. "Campus Final Exam", "IELTS / GRE Exam", "Admission Test"
+  targetDate: string; // YYYY-MM-DD
+  targetDailyHours?: number;
+  category?: string;
+  completed?: boolean;
+  notes?: string;
+  createdAt?: string;
+}
