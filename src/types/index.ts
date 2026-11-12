@@ -96,7 +96,7 @@ export interface DailySalahRecord {
   updatedAt?: string;
 }
 
-export type ActiveMainTab = 'routine' | 'tasks' | 'salah' | 'milestones' | 'history';
+export type ActiveMainTab = 'routine' | 'tasks' | 'salah' | 'milestones' | 'history' | 'folders' | 'add-task' | 'legal';
 
 // Upcoming Exam & Goal Countdown Targets
 export interface MilestoneGoal {

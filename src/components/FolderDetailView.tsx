@@ -426,13 +426,13 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
       </div>
 
       {/* 4. Today's Tasks under this Folder */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Today's Tasks for {folder.name} ({folderTasks.length})
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+              Today&apos;s Tasks for {folder.name} ({folderTasks.length})
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Specific targets planned for this folder today
             </p>
           </div>
@@ -440,21 +440,21 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
           <button
             type="button"
             onClick={() => onOpenAddTask(folder.id)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4757] hover:bg-[#ff3344] text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Add Task</span>
+            <span>Add Task</span>
           </button>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {folderTasks.length === 0 ? (
-            <div className="text-center py-8 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400">
+            <div className="text-center py-7 bg-slate-50 dark:bg-[#181a25] rounded-xl border border-dashed border-slate-200 dark:border-[#272a3d] text-xs text-slate-400">
               No tasks scheduled for {folder.name} today.
               <button
                 type="button"
                 onClick={() => onOpenAddTask(folder.id)}
-                className="text-indigo-600 dark:text-indigo-400 font-bold ml-1 hover:underline cursor-pointer"
+                className="text-[#ff4757] font-bold ml-1 hover:underline cursor-pointer"
               >
                 + Plan a Task
               </button>
@@ -463,7 +463,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
             folderTasks.map((task) => (
               <div
                 key={task.id}
-                className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center justify-between gap-3 text-xs"
+                className="p-3 bg-slate-50 dark:bg-[#181a25] border border-slate-200 dark:border-[#26293b] rounded-xl flex items-center justify-between gap-3 text-xs"
               >
                 <div
                   className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer"
@@ -477,9 +477,11 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                     >
                       {task.subjectName}
                     </h4>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                      {task.topics || 'Routine study session'}
-                    </p>
+                    {task.topics && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {task.topics}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -496,7 +498,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                   <button
                     type="button"
                     onClick={() => onViewTask(task)}
-                    className="px-2.5 py-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[11px] cursor-pointer"
+                    className="px-2.5 py-1 bg-white dark:bg-[#222536] border border-slate-200 dark:border-[#2e3248] text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[11px] cursor-pointer"
                   >
                     View
                   </button>

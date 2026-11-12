@@ -7,16 +7,14 @@ import { MobileSidebarDrawer } from './components/MobileSidebarDrawer';
 import { ProminentAddTaskBanner } from './components/ProminentAddTaskBanner';
 import { CircularTimerDial } from './components/CircularTimerDial';
 import { MobileTaskCardList } from './components/MobileTaskCardList';
-import { GitHubConsistencyHeatmap } from './components/GitHubConsistencyHeatmap';
+import { ConsistencyMap } from './components/ConsistencyMap';
 import { MobileBottomNav } from './components/MobileBottomNav';
-import { FolderSummaryCards } from './components/FolderSummaryCards';
-import { TasksList } from './components/TasksList';
+import { FoldersScreen } from './components/FoldersScreen';
 import { StudyHistory } from './components/StudyHistory';
 import { SalahTracker } from './components/SalahTracker';
 import { ActiveStopwatchBar } from './components/ActiveStopwatchBar';
 import { FolderDetailView } from './components/FolderDetailView';
-import { FolderManageModal } from './components/FolderManageModal';
-import { NewTaskModal } from './components/NewTaskModal';
+import { AddTaskScreen } from './components/AddTaskScreen';
 import { TaskDetailsModal } from './components/TaskDetailsModal';
 import { StartNewDayModal } from './components/StartNewDayModal';
 import { LogPastStudyModal } from './components/LogPastStudyModal';
@@ -25,7 +23,9 @@ import { CalendarSettingsModal } from './components/CalendarSettingsModal';
 import { ResetAllDataModal } from './components/ResetAllDataModal';
 import { MilestoneCountdownWidget } from './components/MilestoneCountdownWidget';
 import { ExportReportModal } from './components/ExportReportModal';
-import { DailyTask } from './types';
+import { PrivacyLegalScreen } from './components/PrivacyLegalScreen';
+import { OfflineIndicator } from './components/OfflineIndicator';
+import { ActiveMainTab, DailyTask } from './types';
 import { Loader2, Timer } from 'lucide-react';
 
 function AppContent() {
@@ -33,16 +33,14 @@ function AppContent() {
     activeTab,
     setActiveTab,
     isDataLoading,
-    syncStatus,
     selectedFolderId,
     setSelectedFolderId,
   } = useStudy();
 
   // Modal & Drawer States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isFolderManagerOpen, setIsFolderManagerOpen] = useState(false);
-  const [folderManagerTargetId, setFolderManagerTargetId] = useState<string | undefined>();
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
+  const [autoFocusCreateFolder, setAutoFocusCreateFolder] = useState(false);
+  const [returnTabAfterAddTask, setReturnTabAfterAddTask] = useState<ActiveMainTab>('routine');
   const [defaultFolder, setDefaultFolder] = useState<string | undefined>();
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
   const [viewingTask, setViewingTask] = useState<DailyTask | null>(null);
@@ -56,15 +54,25 @@ function AppContent() {
   const [isExportReportOpen, setIsExportReportOpen] = useState(false);
 
   const handleOpenAddTask = (folderId?: string) => {
+    setReturnTabAfterAddTask(activeTab === 'add-task' || activeTab === 'legal' ? 'routine' : activeTab);
     setDefaultFolder(folderId);
     setEditingTask(null);
-    setIsAddTaskOpen(true);
+    setActiveTab('add-task');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleEditTask = (task: DailyTask) => {
+    setReturnTabAfterAddTask(activeTab === 'add-task' || activeTab === 'legal' ? 'routine' : activeTab);
     setEditingTask(task);
     setDefaultFolder(task.folderId);
-    setIsAddTaskOpen(true);
+    setActiveTab('add-task');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCloseAddTask = () => {
+    setEditingTask(null);
+    setDefaultFolder(undefined);
+    setActiveTab(returnTabAfterAddTask);
   };
 
   const handleViewTask = (task: DailyTask) => {
@@ -81,21 +89,25 @@ function AppContent() {
     setIsSyncCalendarOpen(true);
   };
 
-  const handleOpenFolderManager = (folderId?: string) => {
-    setFolderManagerTargetId(folderId);
-    setIsFolderManagerOpen(true);
+  const handleOpenFoldersPage = (autoCreate = false) => {
+    setSelectedFolderId(null);
+    setAutoFocusCreateFolder(autoCreate);
+    setActiveTab('folders');
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0e14] dark:bg-[#0a0b10] text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-[#f5f7fb] dark:bg-[#0a0b10] text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-hidden font-sans">
       {/* Mobile App Top Header with user greeting, avatar, and sidebar drawer toggle */}
       <MobileAppHeader
         onOpenSidebar={() => setIsSidebarOpen(true)}
         onOpenAddTask={() => handleOpenAddTask()}
       />
 
+      {/* Offline Mode Indicator Banner */}
+      <OfflineIndicator />
+
       {/* Sticky Active Stopwatch Bar when timer is running on other tabs or views */}
-      {activeTab !== 'routine' && <ActiveStopwatchBar />}
+      {activeTab !== 'routine' && activeTab !== 'add-task' && activeTab !== 'legal' && <ActiveStopwatchBar />}
 
       {/* Cloud Loading Banner if fetching initial Firestore state */}
       {isDataLoading && (
@@ -106,8 +118,15 @@ function AppContent() {
       )}
 
       {/* Mobile-Centric Main Container (Optimized for phones & tablet/desktop app view) */}
-      <main className="flex-1 w-full max-w-2xl mx-auto px-3.5 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 overflow-x-hidden pb-20">
-        {activeTab === 'routine' ? (
+      <main className="flex-1 w-full max-w-2xl mx-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden pb-20">
+        {activeTab === 'add-task' ? (
+          <AddTaskScreen
+            defaultFolderId={defaultFolder}
+            editingTask={editingTask}
+            onCancel={handleCloseAddTask}
+            onSaved={handleCloseAddTask}
+          />
+        ) : activeTab === 'routine' ? (
           selectedFolderId ? (
             /* Folder Detail Drill-Down View (Mobile-style workspace) */
             <FolderDetailView
@@ -118,14 +137,8 @@ function AppContent() {
               onViewTask={handleViewTask}
             />
           ) : (
-            /* Home Page as Requested by User:
-               1. Big Add Task at the very top
-               2. Current Study Time (Circular Dial Timer)
-               3. Today's Task / Daily Task
-               4. Sobar niche GitHub Consistency Heatmap
-            */
-            <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
-              {/* 1. Timer at the TOP per user request */}
+            <div className="space-y-4 animate-in fade-in duration-200">
+              {/* 1. Timer at the TOP */}
               <CircularTimerDial
                 onOpenAddTask={() => handleOpenAddTask()}
               />
@@ -135,20 +148,35 @@ function AppContent() {
                 onOpenAddTask={() => handleOpenAddTask()}
               />
 
-              {/* 3. Today's Tasks / Daily Tasks */}
+              {/* 3. Today's Tasks (completed tasks automatically disappear from Home) */}
               <MobileTaskCardList
+                homeMode={true}
                 onOpenAddTask={() => handleOpenAddTask()}
                 onEditTask={handleEditTask}
                 onViewTask={handleViewTask}
               />
 
-              {/* 4. Sobar Niche GitHub Consistency Heatmap with Day Click Activity Breakdown */}
-              <GitHubConsistencyHeatmap />
+              {/* 4. Compact Consistency Map with Day Click Activity Breakdown */}
+              <ConsistencyMap />
             </div>
           )
+        ) : activeTab === 'folders' ? (
+          /* Genuine Full-Screen Folders Explorer & Inline Creator */
+          <FoldersScreen
+            autoFocusCreate={autoFocusCreateFolder}
+            onBackHome={() => {
+              setAutoFocusCreateFolder(false);
+              setActiveTab('routine');
+            }}
+            onOpenFolderDetail={(fId) => {
+              setAutoFocusCreateFolder(false);
+              setSelectedFolderId(fId);
+              setActiveTab('routine');
+            }}
+          />
         ) : activeTab === 'tasks' ? (
-          /* Dedicated Tasks View */
-          <div className="space-y-5 animate-in fade-in duration-200">
+          /* Dedicated Tasks View (shows both active and completed tasks) */
+          <div className="space-y-4 animate-in fade-in duration-200">
             <ProminentAddTaskBanner onOpenAddTask={() => handleOpenAddTask()} />
             <MobileTaskCardList
               onOpenAddTask={() => handleOpenAddTask()}
@@ -163,13 +191,19 @@ function AppContent() {
           </div>
         ) : activeTab === 'milestones' ? (
           /* Exam & Milestone Countdown Targets */
-          <div className="space-y-5 animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             <MilestoneCountdownWidget />
           </div>
+        ) : activeTab === 'legal' ? (
+          /* Store Compliance: Privacy Policy, Terms & Account Deletion */
+          <PrivacyLegalScreen
+            showAccountDeletion={true}
+            onBack={() => setActiveTab('routine')}
+          />
         ) : (
           /* Study History & Past Records Section */
-          <div className="space-y-5 animate-in fade-in duration-200">
-            <GitHubConsistencyHeatmap />
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <ConsistencyMap />
             <StudyHistory
               onOpenLogPastModal={handleOpenLogPast}
               onOpenSyncCalendar={(dateKey) => handleOpenSyncCalendar(dateKey)}
@@ -178,14 +212,14 @@ function AppContent() {
         )}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Home, Tasks, Salah, Goals, History) */}
-      <MobileBottomNav />
+      {/* Mobile Bottom Navigation Bar (hidden on full-screen Add Task & Legal views) */}
+      {activeTab !== 'add-task' && activeTab !== 'legal' && <MobileBottomNav />}
 
-      {/* Mobile Slide-Out Sidebar Drawer (User requested: manage folder, create folder, theme, settings all here) */}
+      {/* Mobile Slide-Out Sidebar Drawer */}
       <MobileSidebarDrawer
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onOpenFolderManager={handleOpenFolderManager}
+        onOpenFoldersPage={handleOpenFoldersPage}
         onOpenResetDay={() => setIsResetDayOpen(true)}
         onOpenSyncCalendar={() => handleOpenSyncCalendar()}
         onOpenExportReport={() => setIsExportReportOpen(true)}
@@ -193,27 +227,6 @@ function AppContent() {
       />
 
       {/* Modals & Dialogs */}
-      {/* Folder & Subject Manager Modal (accessible from sidebar) */}
-      <FolderManageModal
-        isOpen={isFolderManagerOpen}
-        onClose={() => {
-          setIsFolderManagerOpen(false);
-          setFolderManagerTargetId(undefined);
-        }}
-        initialFolderId={folderManagerTargetId}
-      />
-
-      {/* Add / Edit Task Modal */}
-      <NewTaskModal
-        isOpen={isAddTaskOpen}
-        onClose={() => {
-          setIsAddTaskOpen(false);
-          setEditingTask(null);
-        }}
-        defaultFolderId={defaultFolder}
-        editingTask={editingTask}
-      />
-
       {/* Task Details Modal */}
       <TaskDetailsModal
         isOpen={!!viewingTask}

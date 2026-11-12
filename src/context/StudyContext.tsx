@@ -951,6 +951,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     targetMinutes: number;
     notes?: string;
   }): DailyTask => {
+    const trimmedNotes = data.notes?.trim();
     const newTask: DailyTask = {
       id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       folderId: data.folderId,
@@ -959,7 +960,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       targetMinutes: Math.max(5, data.targetMinutes),
       actualMinutes: 0,
       completed: false,
-      notes: data.notes?.trim() || undefined,
+      ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       createdAt: new Date().toISOString(),
     };
 
@@ -1310,6 +1311,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     category?: string;
     notes?: string;
   }) => {
+    const trimmedNotes = data.notes?.trim();
     const newM: MilestoneGoal = {
       id: `milestone-${Date.now()}`,
       title: data.title.trim(),
@@ -1317,7 +1319,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       targetDailyHours: data.targetDailyHours || 3,
       category: data.category || 'General',
       completed: false,
-      notes: data.notes?.trim() || undefined,
+      ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       createdAt: new Date().toISOString(),
     };
     setMilestones((prev) => {
@@ -1354,6 +1356,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Start New Day / Archive Today
   const startNewDay = (archiveFirst = true) => {
     const today = toDateKey(new Date());
+    let nextRecords = dateRecords;
 
     if (archiveFirst && (tasks.length > 0 || totalActualMinutes > 0)) {
       const dayTasks: HistoricalTaskRecord[] = tasks.map((t) => ({
@@ -1380,21 +1383,24 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       });
 
+      const existingToday = dateRecords[today];
+      const mergedActual = existingToday
+        ? Math.max(existingToday.totalActualMinutes, totalActualMinutes)
+        : totalActualMinutes;
+
       const todayRecord: DateStudyRecord = {
         date: today,
-        totalTargetMinutes,
-        totalActualMinutes,
+        totalTargetMinutes: Math.max(existingToday?.totalTargetMinutes || 0, totalTargetMinutes),
+        totalActualMinutes: mergedActual,
         tasks: dayTasks,
         folderBreakdown,
       };
 
-      setDateRecords((prev) => {
-        const nextRecords = {
-          ...prev,
-          [today]: todayRecord,
-        };
-        return nextRecords;
-      });
+      nextRecords = {
+        ...dateRecords,
+        [today]: todayRecord,
+      };
+      setDateRecords(nextRecords);
     }
 
     // Reset today's active progress counters while keeping configured subjects/folders
@@ -1405,7 +1411,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         actualMinutes: 0,
         completed: false,
       }));
-      scheduleSaveToFirestore(folders, resetTasks, dateRecords, salahRecords);
+      scheduleSaveToFirestore(folders, resetTasks, nextRecords, salahRecords);
       return resetTasks;
     });
 
@@ -1522,6 +1528,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         folderBreakdown: {},
       };
 
+      const trimmedNotes = data.notes?.trim();
       const newTask: HistoricalTaskRecord = {
         id: `hist-task-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         folderId: data.folderId,
@@ -1530,7 +1537,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         targetMinutes: data.durationMinutes,
         actualMinutes: data.durationMinutes,
         completed: data.completed,
-        notes: data.notes?.trim() || undefined,
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       };
 
       const updatedTasks = [newTask, ...existing.tasks];
@@ -1707,16 +1714,89 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [dateRecords]);
 
+  // Keep today's live study minutes automatically synced into dateRecords[todayKey]
+  useEffect(() => {
+    if (!isInitialLoadDoneRef.current || totalActualMinutes <= 0) return;
+
+    const todayStr = toDateKey(new Date());
+    const existing = dateRecords[todayStr];
+    const nextTotalActual = Math.max(existing?.totalActualMinutes || 0, totalActualMinutes);
+
+    const activeOrCompletedTasks: HistoricalTaskRecord[] = tasks
+      .filter((t) => t.actualMinutes > 0 || t.completed)
+      .map((t) => ({
+        id: String(t.id),
+        folderId: t.folderId,
+        subjectName: t.subjectName,
+        topics: t.topics,
+        targetMinutes: t.targetMinutes,
+        actualMinutes: t.actualMinutes,
+        completed: t.completed,
+        ...(t.notes ? { notes: t.notes } : {}),
+      }));
+
+    const nextTasksArray =
+      activeOrCompletedTasks.length > 0 ? activeOrCompletedTasks : existing?.tasks || [];
+
+    // Avoid redundant updates if already synced for this exact minute total & task count
+    if (
+      existing &&
+      existing.totalActualMinutes === nextTotalActual &&
+      existing.tasks.length === nextTasksArray.length
+    ) {
+      return;
+    }
+
+    const folderBreakdown: Record<
+      string,
+      { targetMinutes: number; actualMinutes: number; tasksCount: number; completedTasksCount: number }
+    > = {};
+    folders.forEach((f) => {
+      const stats = folderStats[f.id];
+      if (stats && (stats.actualMinutes > 0 || stats.totalTasks > 0)) {
+        folderBreakdown[f.id] = {
+          targetMinutes: stats.targetMinutes,
+          actualMinutes: stats.actualMinutes,
+          tasksCount: stats.totalTasks,
+          completedTasksCount: stats.completedTasks,
+        };
+      }
+    });
+
+    const nextRecords: Record<string, DateStudyRecord> = {
+      ...dateRecords,
+      [todayStr]: {
+        date: todayStr,
+        totalTargetMinutes: Math.max(existing?.totalTargetMinutes || 0, totalTargetMinutes),
+        totalActualMinutes: nextTotalActual,
+        tasks: nextTasksArray,
+        folderBreakdown,
+      },
+    };
+
+    setDateRecords(nextRecords);
+    scheduleSaveToFirestore(folders, tasks, nextRecords, salahRecords);
+  }, [totalActualMinutes, tasks, folders, folderStats, totalTargetMinutes, dateRecords, salahRecords, scheduleSaveToFirestore]);
+
   const allTimeTotalMinutes = useMemo(() => {
-    return Object.values(dateRecords).reduce((sum, r) => sum + r.totalActualMinutes, 0);
-  }, [dateRecords]);
+    const todayStr = toDateKey(new Date());
+    const savedOtherDays = Object.entries(dateRecords)
+      .filter(([k]) => k !== todayStr)
+      .reduce((sum, [_, r]) => sum + r.totalActualMinutes, 0);
+    const todayRec = Math.max(dateRecords[todayStr]?.totalActualMinutes || 0, totalActualMinutes);
+    return savedOtherDays + todayRec;
+  }, [dateRecords, totalActualMinutes]);
 
   const streakDays = useMemo(() => {
+    const todayStr = toDateKey(new Date());
     const activeDates = Object.entries(dateRecords)
       .filter(([_, rec]) => rec.totalActualMinutes > 0)
       .map(([k]) => k);
+    if (totalActualMinutes > 0 && !activeDates.includes(todayStr)) {
+      activeDates.push(todayStr);
+    }
     return calculateStreakFromDates(activeDates);
-  }, [dateRecords]);
+  }, [dateRecords, totalActualMinutes]);
 
   return (
     <StudyContext.Provider

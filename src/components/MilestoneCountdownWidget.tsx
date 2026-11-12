@@ -45,7 +45,7 @@ export const MilestoneCountdownWidget: React.FC = () => {
   });
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs w-full">
+    <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs w-full">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
         <div>
@@ -53,8 +53,8 @@ export const MilestoneCountdownWidget: React.FC = () => {
             <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
               Target Deadlines
             </span>
-            <span className="text-xs text-slate-300 dark:text-slate-700">•</span>
-            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+            <span className="text-xs text-slate-300 dark:text-slate-700">·</span>
+            <span className="text-xs font-semibold text-[#ff4757]">
               Exam & Goal Countdown
             </span>
           </div>
@@ -66,28 +66,28 @@ export const MilestoneCountdownWidget: React.FC = () => {
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 font-bold text-xs transition-colors cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ff4757]/10 hover:bg-[#ff4757]/20 border border-[#ff4757]/30 text-[#ff4757] font-bold text-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>+ Add Exam / Goal</span>
+          <span>Add Exam / Goal</span>
         </button>
       </div>
 
       {/* Milestones Cards Grid */}
       {sortedMilestones.length === 0 ? (
-        <div className="text-center py-8 px-4 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+        <div className="text-center py-8 px-4 border border-dashed border-slate-200 dark:border-[#26293a] rounded-2xl">
           <Target className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
           <p className="text-xs text-slate-500 font-medium">No target exams or goals added yet.</p>
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
-            className="mt-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            className="mt-2 text-xs font-bold text-[#ff4757] hover:underline cursor-pointer"
           >
             + Add your first exam or goal target
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {sortedMilestones.map((m) => {
             const daysLeft = calculateDaysRemaining(m.targetDate);
             const isPassed = daysLeft < 0;
@@ -98,10 +98,10 @@ export const MilestoneCountdownWidget: React.FC = () => {
                 key={m.id}
                 className={`border rounded-2xl p-4 transition-all flex flex-col justify-between relative group ${
                   m.completed
-                    ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-75'
+                    ? 'bg-slate-50 dark:bg-[#171925]/60 border-slate-200 dark:border-[#222434] opacity-75'
                     : daysLeft <= 7 && !isPassed
-                    ? 'bg-gradient-to-br from-amber-500/10 to-slate-900/5 dark:from-amber-950/30 dark:to-slate-900 border-amber-300 dark:border-amber-800/60 shadow-xs'
-                    : 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800/70 hover:border-indigo-400 dark:hover:border-indigo-500'
+                    ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700/60 shadow-xs'
+                    : 'bg-slate-50/80 dark:bg-[#181a26] border-slate-200 dark:border-[#26293b] hover:border-[#ff4757]/50'
                 }`}
               >
                 <div>

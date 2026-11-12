@@ -19,6 +19,10 @@ import {
   X,
   Award,
   Zap,
+  Folder,
+  Plus,
+  ArrowLeft,
+  ChevronRight,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -50,6 +54,31 @@ const playUiClickSound = () => {
   }
 };
 
+// Gentle 2-note chime when a Pomodoro or Break completes
+const playTimerCompleteChime = () => {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
+    const notes = [587.33, 880]; // D5 -> A5 gentle interval
+    notes.forEach((freq, idx) => {
+      const startTime = ctx.currentTime + idx * 0.16;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.12, startTime + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.46);
+    });
+  } catch {
+    // Ignore audio context errors
+  }
+};
+
 export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddTask }) => {
   const {
     tasks,
@@ -66,7 +95,15 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
   } = useStudy();
 
   const [mode, setMode] = useState<TimerMode>('stopwatch');
-  const [isTaskDropdownOpen, setIsTaskDropdownOpen] = useState(false);
+  const [isSubjectPickerOpen, setIsSubjectPickerOpen] = useState(false);
+  const [hasPickedSubjectThisSession, setHasPickedSubjectThisSession] = useState(false);
+  const [selectedSessionTarget, setSelectedSessionTarget] = useState<{
+    taskId?: string;
+    folderId: string;
+    subjectName: string;
+  } | null>(null);
+  const [customSubjectInput, setCustomSubjectInput] = useState('');
+  const [customSubjectFolderId, setCustomSubjectFolderId] = useState<string>('');
   const [pomodoroSecondsLeft, setPomodoroSecondsLeft] = useState<number>(25 * 60);
   const [isPomodoroRunning, setIsPomodoroRunning] = useState<boolean>(false);
 
@@ -81,16 +118,46 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
   // Premium Feature 2: Fullscreen Zen Focus Mode
   const [isZenModeOpen, setIsZenModeOpen] = useState<boolean>(false);
 
-  // Active task & folder resolution
-  const activeTask = stopwatch.taskId
-    ? tasks.find((t) => String(t.id) === String(stopwatch.taskId))
-    : tasks.find((t) => !t.completed) || tasks[0] || null;
+  // Active task & folder resolution (prioritize running stopwatch, then user's explicit session selection, then first pending task)
+  const effectiveTaskId = stopwatch.taskId || selectedSessionTarget?.taskId || null;
+  const activeTask = effectiveTaskId
+    ? tasks.find((t) => String(t.id) === String(effectiveTaskId)) || null
+    : !selectedSessionTarget
+    ? tasks.find((t) => !t.completed) || tasks[0] || null
+    : null;
 
-  const activeFolderId = stopwatch.folderId || activeTask?.folderId || folders[0]?.id;
-  const activeFolder = folders.find((f) => String(f.id) === String(activeFolderId)) || folders[0] || {
-    id: 'default',
-    name: 'General Study',
-    color: '#ff4757',
+  const activeFolderId =
+    stopwatch.folderId ||
+    selectedSessionTarget?.folderId ||
+    activeTask?.folderId ||
+    folders[0]?.id;
+
+  const activeFolder =
+    activeFolderId === 'general'
+      ? { id: 'general', name: 'General Study', color: '#6366F1' }
+      : folders.find((f) => String(f.id) === String(activeFolderId)) ||
+        folders[0] || {
+          id: 'default',
+          name: 'General Study',
+          color: '#ff4757',
+        };
+
+  const activeSubjectLabel = activeTask
+    ? activeTask.topics
+      ? `${activeTask.subjectName}: ${activeTask.topics}`
+      : activeTask.subjectName
+    : stopwatch.subjectName ||
+      selectedSessionTarget?.subjectName ||
+      `${activeFolder.name} Study Session`;
+
+  const [expandedPickerFolderId, setExpandedPickerFolderId] = useState<string | null>(null);
+
+  const openSubjectPicker = () => {
+    const initialFolder = activeFolderId || folders[0]?.id || null;
+    setExpandedPickerFolderId(initialFolder);
+    setCustomSubjectFolderId(initialFolder || 'general');
+    setCustomSubjectInput('');
+    setIsSubjectPickerOpen(true);
   };
 
   // Soundscape audio synthesizer
@@ -213,6 +280,17 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
         setPomodoroSecondsLeft((prev) => {
           if (prev <= 1) {
             confetti({ particleCount: 75, spread: 80, origin: { y: 0.6 } });
+            playTimerCompleteChime();
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                new Notification('FocusTrack Timer Complete', {
+                  body: mode === 'pomodoro' ? '25-minute focus session saved! Take a short break.' : 'Break finished! Ready to focus again.',
+                  icon: '/pwa-192x192.png',
+                });
+              } catch {
+                // Ignore Notification constructor failures inside restricted WebViews
+              }
+            }
             setIsPomodoroRunning(false);
             if (mode === 'pomodoro' && activeTask) {
               addStudyTimeToTask(activeTask.id, 25);
@@ -245,7 +323,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     }
   };
 
-  // Time calculations
+  // Time calculations (Always include Hours in HH:MM:SS format)
   let displayMinutes = 0;
   let displaySeconds = 0;
   let displayHours = 0;
@@ -261,39 +339,76 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     progressFraction = Math.min(1, stopwatch.secondsElapsed / targetSec);
   } else {
     isTimerActive = isPomodoroRunning;
-    displayMinutes = Math.floor(pomodoroSecondsLeft / 60);
+    displayHours = Math.floor(pomodoroSecondsLeft / 3600);
+    displayMinutes = Math.floor((pomodoroSecondsLeft % 3600) / 60);
     displaySeconds = pomodoroSecondsLeft % 60;
     const totalSec = mode === 'pomodoro' ? 25 * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60;
     progressFraction = 1 - pomodoroSecondsLeft / totalSec;
   }
 
-  const formattedTime =
-    mode === 'stopwatch' && displayHours > 0
-      ? `${String(displayHours).padStart(2, '0')}:${String(displayMinutes).padStart(2, '0')}:${String(displaySeconds).padStart(2, '0')}`
-      : `${String(displayMinutes).padStart(2, '0')}:${String(displaySeconds).padStart(2, '0')}`;
+  const formattedTime = `${String(displayHours).padStart(2, '0')}:${String(displayMinutes).padStart(2, '0')}:${String(displaySeconds).padStart(2, '0')}`;
+
+  const startTimerWithSelection = (selection: {
+    taskId?: string;
+    folderId: string;
+    subjectName: string;
+  }) => {
+    setSelectedSessionTarget(selection);
+    setHasPickedSubjectThisSession(true);
+    setIsSubjectPickerOpen(false);
+
+    if (mode === 'stopwatch') {
+      if (stopwatch.isRunning && stopwatch.taskId !== selection.taskId) {
+        stopAndSaveStopwatch();
+      }
+      if (selection.taskId) {
+        startStopwatch(selection.taskId, selection.folderId);
+      } else {
+        startFolderTimer(selection.folderId, selection.subjectName);
+      }
+    } else {
+      if (pomodoroSecondsLeft <= 0) {
+        setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : 5 * 60);
+      }
+      setIsPomodoroRunning(true);
+    }
+  };
 
   const handleToggleTimer = () => {
     playUiClickSound();
     if (mode === 'stopwatch') {
       if (stopwatch.isRunning) {
         pauseStopwatch();
-      } else {
+      } else if (stopwatch.secondsElapsed > 0 || hasPickedSubjectThisSession) {
         if (activeTask) {
           startStopwatch(activeTask.id, activeTask.folderId);
+        } else if (selectedSessionTarget) {
+          startFolderTimer(selectedSessionTarget.folderId, selectedSessionTarget.subjectName);
         } else if (activeFolder) {
           startFolderTimer(activeFolder.id);
         }
+      } else {
+        // Fresh timer turn-on: ask user which subject/task they want to study
+        openSubjectPicker();
       }
     } else {
-      if (pomodoroSecondsLeft <= 0) {
-        setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : 5 * 60);
+      if (isPomodoroRunning) {
+        setIsPomodoroRunning(false);
+      } else if (mode === 'pomodoro' && !hasPickedSubjectThisSession && pomodoroSecondsLeft === 25 * 60) {
+        openSubjectPicker();
+      } else {
+        if (pomodoroSecondsLeft <= 0) {
+          setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : 5 * 60);
+        }
+        setIsPomodoroRunning(true);
       }
-      setIsPomodoroRunning(!isPomodoroRunning);
     }
   };
 
   const handleReset = () => {
     playUiClickSound();
+    setHasPickedSubjectThisSession(false);
+    setSelectedSessionTarget(null);
     if (mode === 'stopwatch') {
       resetStopwatch();
     } else {
@@ -313,342 +428,549 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
   const productivityTier =
     productivityScore >= 90 ? 'S-Rank Focus 🔥' : productivityScore >= 60 ? 'A-Rank Deep Work ⭐' : 'Building Momentum ⚡';
 
-  // Circular SVG constants
-  const size = 260;
-  const strokeWidth = 10;
+  // Circular SVG constants (sized cleanly so HH:MM:SS fits with generous inner margin)
+  const size = 228;
+  const strokeWidth = 9;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - progressFraction * circumference;
   const themeRed = '#ff4757';
 
   return (
-    <div className="relative w-full bg-[#12131b] dark:bg-[#0f1017] border border-[#222434] rounded-[32px] p-4 sm:p-6 shadow-2xl flex flex-col items-center text-white overflow-hidden transition-all">
+    <div className="relative w-full bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col items-center text-slate-900 dark:text-white overflow-hidden transition-all">
       {/* Ambient background glow matching active timer */}
       <div
-        className="absolute -top-24 -left-24 w-60 h-60 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700"
+        className="absolute -top-24 -left-24 w-52 h-52 rounded-full blur-3xl opacity-15 pointer-events-none transition-all duration-700"
         style={{ backgroundColor: isTimerActive ? themeRed : activeFolder.color }}
       />
       <div
-        className="absolute -bottom-24 -right-24 w-60 h-60 rounded-full blur-3xl opacity-15 pointer-events-none"
+        className="absolute -bottom-24 -right-24 w-52 h-52 rounded-full blur-3xl opacity-10 pointer-events-none"
         style={{ backgroundColor: activeFolder.color }}
       />
 
-      {/* Top Controls Row: Task Pill + Soundscape Studio Button + Zen Fullscreen Mode */}
-      <div className="w-full flex items-center justify-between gap-2 mb-3 relative z-10">
-        {/* Task Selector Pill */}
-        <div className="relative flex-1 min-w-0">
-          <button
-            onClick={() => {
-              playUiClickSound();
-              setIsTaskDropdownOpen(!isTaskDropdownOpen);
-            }}
-            className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-[#1b1c28] hover:bg-[#232536] border border-[#2a2c3e] rounded-2xl transition-all text-left cursor-pointer group"
-          >
+      {isSubjectPickerOpen ? (
+        /* Inline Folder-by-Folder Structured Subject Selector (Zero Pop-up) */
+        <div className="w-full space-y-3 relative z-10 animate-in fade-in duration-150">
+          {/* Inline Header with Back to Timer */}
+          <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-[#222536]">
             <div className="flex items-center gap-2 min-w-0">
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/20"
-                style={{ backgroundColor: activeFolder.color || themeRed }}
-              />
-              <span className="text-xs font-bold text-slate-200 truncate">
-                {activeTask ? `${activeTask.subjectName}: ${activeTask.topics}` : `${activeFolder.name} Study Session`}
-              </span>
-            </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform shrink-0" />
-          </button>
-
-          {/* Dropdown Menu */}
-          {isTaskDropdownOpen && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#181924] border border-[#2b2d3f] rounded-2xl shadow-2xl p-2 z-50 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
-              <div className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 px-3 py-1.5">
-                Focus on Active Task
+              <button
+                type="button"
+                onClick={() => {
+                  playUiClickSound();
+                  setIsSubjectPickerOpen(false);
+                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-[#1b1c28] hover:bg-slate-200 dark:hover:bg-[#232536] border border-slate-200 dark:border-[#2a2c3e] flex items-center justify-center text-slate-700 dark:text-slate-200 cursor-pointer shrink-0"
+                aria-label="Back to timer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <div className="min-w-0">
+                <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
+                  Select Subject to Study
+                </h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                  Open a folder and tap a subject to start timer
+                </p>
               </div>
-              {tasks.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-400 text-center">
-                  No tasks added today.
-                  {onOpenAddTask && (
-                    <button
-                      onClick={() => {
-                        setIsTaskDropdownOpen(false);
-                        onOpenAddTask();
-                      }}
-                      className="block mx-auto mt-1 text-[#ff4757] font-bold hover:underline"
-                    >
-                      + Add Task
-                    </button>
-                  )}
-                </div>
-              ) : (
-                tasks.map((task) => {
-                  const taskFolder = folders.find((f) => String(f.id) === String(task.folderId));
-                  const isCurrent = stopwatch.taskId === task.id;
-                  return (
-                    <button
-                      key={task.id}
-                      onClick={() => {
-                        playUiClickSound();
-                        setIsTaskDropdownOpen(false);
-                        if (stopwatch.isRunning && stopwatch.taskId !== task.id) {
-                          stopAndSaveStopwatch();
-                        }
-                        startStopwatch(task.id, task.folderId);
-                      }}
-                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
-                        isCurrent
-                          ? 'bg-[#ff4757]/15 text-white font-bold border border-[#ff4757]/30'
-                          : 'text-slate-300 hover:bg-[#232536]'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: taskFolder?.color || '#ff4757' }}
-                        />
-                        <span className="truncate">{task.subjectName} - {task.topics}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 shrink-0">
-                        {task.actualMinutes}/{task.targetMinutes}m
-                      </span>
-                    </button>
-                  );
-                })
-              )}
             </div>
-          )}
-        </div>
 
-        {/* Premium Feature: Multi-Track Soundscape Trigger */}
-        <button
-          onClick={() => {
-            playUiClickSound();
-            setIsSoundModalOpen(true);
-          }}
-          className={`p-2 rounded-2xl border transition-all cursor-pointer ${
-            soundscapePlaying
-              ? 'bg-[#ff4757]/20 border-[#ff4757] text-[#ff4757] animate-pulse'
-              : 'bg-[#1b1c28] border-[#2a2c3e] text-slate-400 hover:text-white'
-          }`}
-          title="Multi-Track Ambient Soundscapes"
-          aria-label="Soundscapes"
-        >
-          {soundscapePlaying ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-        </button>
-
-        {/* Premium Feature: Zen Fullscreen Mode Trigger */}
-        <button
-          onClick={() => {
-            playUiClickSound();
-            setIsZenModeOpen(true);
-          }}
-          className="p-2 rounded-2xl bg-[#1b1c28] border border-[#2a2c3e] text-slate-400 hover:text-white hover:border-slate-500 transition-all cursor-pointer shadow-xs active:scale-90"
-          title="Full-Screen OLED Zen Mode"
-          aria-label="Zen Mode"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Mode Switcher Tabs */}
-      <div className="flex items-center justify-center gap-1.5 bg-[#171822] p-1 rounded-2xl border border-[#242636] mb-3 w-full max-w-xs">
-        <button
-          onClick={() => handleSelectMode('stopwatch')}
-          className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
-            mode === 'stopwatch'
-              ? 'bg-[#ff4757] text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          Stopwatch
-        </button>
-        <button
-          onClick={() => handleSelectMode('pomodoro')}
-          className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
-            mode === 'pomodoro'
-              ? 'bg-[#ff4757] text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          25m Focus
-        </button>
-        <button
-          onClick={() => handleSelectMode('shortBreak')}
-          className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer ${
-            mode === 'shortBreak'
-              ? 'bg-emerald-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          5m Break
-        </button>
-      </div>
-
-      {/* Circular Progress Ring & Dial */}
-      <div className="relative my-1 flex items-center justify-center">
-        <svg width={size} height={size} className="transform -rotate-90">
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke="#1a1c27"
-            strokeWidth={strokeWidth}
-            fill="transparent"
-          />
-
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius - 12}
-            stroke="#242637"
-            strokeWidth={1}
-            strokeDasharray="2 8"
-            fill="transparent"
-          />
-
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={mode === 'shortBreak' || mode === 'longBreak' ? '#10b981' : themeRed}
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            strokeLinecap="round"
-            fill="transparent"
-            className="transition-all duration-500 ease-out"
-            style={{
-              filter: isTimerActive ? `drop-shadow(0 0 10px ${themeRed}80)` : 'none',
-            }}
-          />
-        </svg>
-
-        {/* Center Digital Clock */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
-          <div className="flex items-center gap-1.5 text-xs font-semibold mb-1">
-            {isTimerActive ? (
-              <>
-                <Flame className="w-3.5 h-3.5 text-[#ff4757] fill-[#ff4757] animate-pulse" />
-                <span className="text-[#ff4757] font-bold tracking-wide">
-                  {mode === 'shortBreak' ? 'Resting...' : 'Deep Focus'}
-                </span>
-              </>
-            ) : (
-              <>
-                <TimerIcon className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-slate-400 tracking-wide">
-                  {mode === 'stopwatch' ? 'Ready to Study' : 'Pomodoro Timer'}
-                </span>
-              </>
+            {onOpenAddTask && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSubjectPickerOpen(false);
+                  onOpenAddTask();
+                }}
+                className="text-[11px] font-bold text-[#ff4757] hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
+              >
+                <Plus className="w-3 h-3" /> New Task
+              </button>
             )}
           </div>
 
-          <div className="font-mono text-4xl sm:text-5xl font-extrabold tracking-tight text-white drop-shadow-md">
-            {formattedTime}
+          {/* Folder-by-Folder Structured List */}
+          <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
+            {folders.map((folder) => {
+              const isExpanded = expandedPickerFolderId === folder.id;
+              const folderTasks = tasks.filter(
+                (t) => !t.completed && String(t.folderId) === String(folder.id)
+              );
+              const subjects = folder.subjects || [];
+
+              return (
+                <div
+                  key={folder.id}
+                  className={`rounded-2xl border transition-all overflow-hidden ${
+                    isExpanded
+                      ? 'bg-slate-50/90 dark:bg-[#171925] border-slate-300 dark:border-[#32364d]'
+                      : 'bg-slate-50/50 dark:bg-[#161822] border-slate-200 dark:border-[#232638]'
+                  }`}
+                >
+                  {/* Folder Row Header */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playUiClickSound();
+                      setExpandedPickerFolderId(isExpanded ? null : folder.id);
+                      setCustomSubjectFolderId(folder.id);
+                    }}
+                    className="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100/70 dark:hover:bg-[#1d2030] transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs"
+                        style={{ backgroundColor: folder.color }}
+                      >
+                        <Folder className="w-3.5 h-3.5 fill-white/25" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                          {folder.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                          {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}
+                          {folderTasks.length > 0 ? ` · ${folderTasks.length} pending` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    )}
+                  </button>
+
+                  {/* Expanded Folder Contents: Subjects -> Folder Tasks -> Custom Subject */}
+                  {isExpanded && (
+                    <div className="px-3 pb-3 pt-1.5 border-t border-slate-200/70 dark:border-[#24273a] space-y-2.5">
+                      {/* Subjects inside this folder */}
+                      {subjects.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Subjects
+                          </span>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {subjects.map((subject) => (
+                              <button
+                                key={subject}
+                                type="button"
+                                onClick={() => {
+                                  playUiClickSound();
+                                  const matchingPending = folderTasks.find(
+                                    (t) => t.subjectName.toLowerCase() === subject.toLowerCase()
+                                  );
+                                  startTimerWithSelection({
+                                    taskId: matchingPending?.id,
+                                    folderId: folder.id,
+                                    subjectName: subject,
+                                  });
+                                }}
+                                className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-[#ff4757] transition-all cursor-pointer active:scale-95"
+                              >
+                                <span className="truncate">{subject}</span>
+                                <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757] shrink-0" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Active Tasks inside this folder */}
+                      {folderTasks.length > 0 && (
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                            Today&apos;s Tasks in {folder.name}
+                          </span>
+                          {folderTasks.map((task) => (
+                            <button
+                              key={task.id}
+                              type="button"
+                              onClick={() => {
+                                playUiClickSound();
+                                startTimerWithSelection({
+                                  taskId: task.id,
+                                  folderId: folder.id,
+                                  subjectName: task.subjectName,
+                                });
+                              }}
+                              className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs transition-all cursor-pointer"
+                            >
+                              <span className="truncate font-semibold text-slate-800 dark:text-slate-200">
+                                {task.topics ? `${task.subjectName} — ${task.topics}` : task.subjectName}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400 shrink-0 flex items-center gap-1">
+                                {task.actualMinutes}/{task.targetMinutes}m
+                                <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757]" />
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Custom Subject input or General Study inside this folder */}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!customSubjectInput.trim()) return;
+                          startTimerWithSelection({
+                            folderId: folder.id,
+                            subjectName: customSubjectInput.trim(),
+                          });
+                        }}
+                        className="flex items-center gap-1.5 pt-0.5"
+                      >
+                        <input
+                          type="text"
+                          value={customSubjectFolderId === folder.id ? customSubjectInput : ''}
+                          onFocus={() => setCustomSubjectFolderId(folder.id)}
+                          onChange={(e) => {
+                            setCustomSubjectFolderId(folder.id);
+                            setCustomSubjectInput(e.target.value);
+                          }}
+                          placeholder={`Other subject in ${folder.name}...`}
+                          className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+                        />
+                        {customSubjectFolderId === folder.id && customSubjectInput.trim() ? (
+                          <button
+                            type="submit"
+                            className="px-2.5 py-1.5 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Play className="w-3 h-3 fill-white" />
+                            <span>Start</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playUiClickSound();
+                              startTimerWithSelection({
+                                folderId: folder.id,
+                                subjectName: `${folder.name} Study`,
+                              });
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <Play className="w-3 h-3 fill-current" />
+                            <span>General</span>
+                          </button>
+                        )}
+                      </form>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {/* Outside Folder / Standalone Quick Study Option */}
+            <div className="rounded-2xl border border-dashed border-slate-300 dark:border-[#2c3045] bg-slate-50/40 dark:bg-[#151722] p-2.5">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const subj =
+                    customSubjectFolderId === 'general' && customSubjectInput.trim()
+                      ? customSubjectInput.trim()
+                      : 'General Study';
+                  startTimerWithSelection({
+                    folderId: 'general',
+                    subjectName: subj,
+                  });
+                }}
+                className="flex items-center gap-2"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0 ml-1" />
+                <input
+                  type="text"
+                  value={customSubjectFolderId === 'general' ? customSubjectInput : ''}
+                  onFocus={() => setCustomSubjectFolderId('general')}
+                  onChange={(e) => {
+                    setCustomSubjectFolderId('general');
+                    setCustomSubjectInput(e.target.value);
+                  }}
+                  placeholder="Outside folder (quick subject name)..."
+                  className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="submit"
+                  className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Play className="w-3 h-3 fill-white" />
+                  <span>Start</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Top Controls Row: Task Pill + Soundscape Studio Button + Zen Fullscreen Mode */}
+          <div className="w-full flex items-center justify-between gap-2 mb-3 relative z-10">
+            {/* Subject / Task Selector Pill */}
+            <div className="relative flex-1 min-w-0">
+              <button
+                onClick={() => {
+                  playUiClickSound();
+                  openSubjectPicker();
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-100 dark:bg-[#1b1c28] hover:bg-slate-200/80 dark:hover:bg-[#232536] border border-slate-200 dark:border-[#2a2c3e] rounded-xl transition-all text-left cursor-pointer group"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white/40 dark:ring-white/20"
+                    style={{ backgroundColor: activeFolder.color || themeRed }}
+                  />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                    {activeSubjectLabel}
+                  </span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white transition-transform shrink-0" />
+              </button>
+            </div>
+
+            {/* Premium Feature: Multi-Track Soundscape Trigger */}
+            <button
+              onClick={() => {
+                playUiClickSound();
+                setIsSoundModalOpen(true);
+              }}
+              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+                soundscapePlaying
+                  ? 'bg-[#ff4757]/15 border-[#ff4757] text-[#ff4757] animate-pulse'
+                  : 'bg-slate-100 dark:bg-[#1b1c28] border-slate-200 dark:border-[#2a2c3e] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+              title="Multi-Track Ambient Soundscapes"
+              aria-label="Soundscapes"
+            >
+              {soundscapePlaying ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
+
+            {/* Premium Feature: Zen Fullscreen Mode Trigger */}
+            <button
+              onClick={() => {
+                playUiClickSound();
+                setIsZenModeOpen(true);
+              }}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-[#1b1c28] border border-slate-200 dark:border-[#2a2c3e] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-90"
+              title="Full-Screen OLED Zen Mode"
+              aria-label="Zen Mode"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="text-[11px] text-slate-400 font-medium mt-1 truncate max-w-[180px] px-2">
-            {activeTask ? activeTask.topics : activeFolder.name}
+          {/* Mode Switcher Tabs */}
+          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-[#171822] p-1 rounded-xl border border-slate-200 dark:border-[#242636] mb-3 w-full max-w-[280px]">
+            <button
+              onClick={() => handleSelectMode('stopwatch')}
+              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                mode === 'stopwatch'
+                  ? 'bg-[#ff4757] text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Stopwatch
+            </button>
+            <button
+              onClick={() => handleSelectMode('pomodoro')}
+              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                mode === 'pomodoro'
+                  ? 'bg-[#ff4757] text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              25m Focus
+            </button>
+            <button
+              onClick={() => handleSelectMode('shortBreak')}
+              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                mode === 'shortBreak'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              5m Break
+            </button>
           </div>
-        </div>
-      </div>
 
-      {/* Control Buttons (Reset, Play/Pause, Save) */}
-      <div className="flex items-center justify-center gap-4 mt-2 mb-2 relative z-10">
-        <button
-          onClick={handleReset}
-          className="p-3 rounded-2xl bg-[#1b1c28] hover:bg-[#232637] border border-[#292c3d] text-slate-400 hover:text-white transition-all cursor-pointer shadow-md active:scale-90"
-          title="Reset timer"
-          aria-label="Reset timer"
-        >
-          <RotateCcw className="w-5 h-5" />
-        </button>
+          {/* Circular Progress Ring & Dial */}
+          <div className="relative my-1 flex items-center justify-center">
+            <svg width={size} height={size} className="transform -rotate-90">
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                className="stroke-slate-200 dark:stroke-[#1a1c27]"
+                strokeWidth={strokeWidth}
+                fill="transparent"
+              />
 
-        {/* Primary Play/Pause Button */}
-        <button
-          onClick={handleToggleTimer}
-          className={`w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl transition-all cursor-pointer active:scale-90 ${
-            isTimerActive
-              ? 'bg-[#e03848] ring-4 ring-[#ff4757]/30 shadow-[#ff4757]/40'
-              : 'bg-[#ff4757] hover:bg-[#ff3344] shadow-[#ff4757]/30'
-          }`}
-          title={isTimerActive ? 'Pause Study Timer' : 'Start Study Timer'}
-          aria-label={isTimerActive ? 'Pause' : 'Play'}
-        >
-          {isTimerActive ? (
-            <Pause className="w-7 h-7 fill-white" />
-          ) : (
-            <Play className="w-7 h-7 fill-white translate-x-0.5" />
-          )}
-        </button>
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius - 11}
+                className="stroke-slate-300/70 dark:stroke-[#242637]"
+                strokeWidth={1}
+                strokeDasharray="2 8"
+                fill="transparent"
+              />
 
-        {mode === 'stopwatch' && stopwatch.secondsElapsed > 0 ? (
-          <button
-            onClick={() => {
-              playUiClickSound();
-              stopAndSaveStopwatch();
-            }}
-            className="p-3 rounded-2xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer shadow-md active:scale-90"
-            title="Finish & Save Session"
-            aria-label="Save and finish"
-          >
-            <Check className="w-5 h-5" />
-          </button>
-        ) : (
-          <div className="w-11 h-11" />
-        )}
-      </div>
+              <circle
+                cx={size / 2}
+                cy={size / 2}
+                r={radius}
+                stroke={mode === 'shortBreak' || mode === 'longBreak' ? '#10b981' : themeRed}
+                strokeWidth={strokeWidth}
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="transparent"
+                className="transition-all duration-500 ease-out"
+                style={{
+                  filter: isTimerActive ? `drop-shadow(0 0 8px ${themeRed}70)` : 'none',
+                }}
+              />
+            </svg>
 
-      {/* Premium Productivity Tier & Daily Summary */}
-      <div className="w-full mt-2 pt-3 border-t border-[#202232] flex items-center justify-between text-xs text-slate-400">
-        <div className="flex items-center gap-1.5">
-          <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-          <span>Today:</span>
-          <span className="font-bold text-white">
-            {Math.floor(totalActualMinutes / 60)}h {totalActualMinutes % 60}m
-          </span>
-        </div>
+            {/* Center Digital Clock */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none pointer-events-none">
+              <div className="flex items-center gap-1 text-[11px] font-semibold mb-0.5">
+                {isTimerActive ? (
+                  <>
+                    <Flame className="w-3 h-3 text-[#ff4757] fill-[#ff4757] animate-pulse" />
+                    <span className="text-[#ff4757] font-bold tracking-wide">
+                      {mode === 'shortBreak' ? 'Resting...' : 'Deep Focus'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <TimerIcon className="w-3 h-3 text-slate-400" />
+                    <span className="text-slate-500 dark:text-slate-400 tracking-wide">
+                      {mode === 'stopwatch' ? 'Ready to Study' : 'Pomodoro'}
+                    </span>
+                  </>
+                )}
+              </div>
 
-        <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#1b1d2b] border border-[#282b3d] text-[10px] font-bold text-emerald-400">
-          <Zap className="w-3 h-3 text-amber-400" />
-          <span>{productivityTier}</span>
-        </div>
-      </div>
+              <div className="font-mono tabular-nums text-[26px] sm:text-[30px] font-extrabold tracking-tight text-slate-900 dark:text-white leading-none">
+                {formattedTime}
+              </div>
+
+              <div className="flex items-center justify-center gap-5 text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mt-1">
+                <span>HR</span>
+                <span>MIN</span>
+                <span>SEC</span>
+              </div>
+
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 truncate max-w-[155px] px-2">
+                {activeTask ? (activeTask.topics || activeTask.subjectName) : activeSubjectLabel}
+              </div>
+            </div>
+          </div>
+
+          {/* Control Buttons (Reset, Play/Pause, Save) */}
+          <div className="flex items-center justify-center gap-3.5 mt-2 mb-1 relative z-10">
+            <button
+              onClick={handleReset}
+              className="p-2.5 rounded-xl bg-slate-100 dark:bg-[#1b1c28] hover:bg-slate-200 dark:hover:bg-[#232637] border border-slate-200 dark:border-[#292c3d] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-90"
+              title="Reset timer"
+              aria-label="Reset timer"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+
+            {/* Primary Play/Pause Button */}
+            <button
+              onClick={handleToggleTimer}
+              className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-lg transition-all cursor-pointer active:scale-90 ${
+                isTimerActive
+                  ? 'bg-[#e03848] ring-4 ring-[#ff4757]/25 shadow-[#ff4757]/35'
+                  : 'bg-[#ff4757] hover:bg-[#ff3344] shadow-[#ff4757]/30'
+              }`}
+              title={isTimerActive ? 'Pause Study Timer' : 'Start Study Timer'}
+              aria-label={isTimerActive ? 'Pause' : 'Play'}
+            >
+              {isTimerActive ? (
+                <Pause className="w-5 h-5 fill-white" />
+              ) : (
+                <Play className="w-5 h-5 fill-white translate-x-0.5" />
+              )}
+            </button>
+
+            {mode === 'stopwatch' && stopwatch.secondsElapsed > 0 ? (
+              <button
+                onClick={() => {
+                  playUiClickSound();
+                  setHasPickedSubjectThisSession(false);
+                  setSelectedSessionTarget(null);
+                  stopAndSaveStopwatch();
+                }}
+                className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 dark:hover:bg-emerald-900 border border-emerald-300 dark:border-emerald-600/50 text-emerald-600 dark:text-emerald-400 transition-all cursor-pointer shadow-2xs active:scale-90"
+                title="Finish & Save Session"
+                aria-label="Save and finish"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="w-9 h-9" />
+            )}
+          </div>
+
+          {/* Productivity Tier & Daily Summary */}
+          <div className="w-full mt-2 pt-2.5 border-t border-slate-100 dark:border-[#202232] flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+              <span>Today:</span>
+              <span className="font-bold text-slate-900 dark:text-white">
+                {Math.floor(totalActualMinutes / 60)}h {totalActualMinutes % 60}m
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-[#1b1d2b] border border-slate-200 dark:border-[#282b3d] text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+              <Zap className="w-3 h-3 text-amber-500" />
+              <span>{productivityTier}</span>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Premium Modal 1: Multi-Track Ambient Soundscapes Studio */}
       {isSoundModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#161723] border border-[#282b3d] rounded-[32px] p-5 shadow-2xl text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-[#242738] mb-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white dark:bg-[#161723] border border-slate-200 dark:border-[#282b3d] rounded-3xl p-5 shadow-2xl text-slate-900 dark:text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#242738] mb-4">
               <div className="flex items-center gap-2">
                 <Volume2 className="w-5 h-5 text-[#ff4757]" />
-                <h3 className="text-base font-bold text-white">Focus Soundscapes Studio</h3>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Focus Soundscapes Studio</h3>
               </div>
               <button
                 onClick={() => setIsSoundModalOpen(false)}
-                className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white"
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-xs text-slate-400 mb-3">
-              Synthesized ambient white noise to block distractions while studying.
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+              Synthesized ambient audio to block distractions while studying.
             </p>
 
             {/* Soundscape Options */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               {[
-                { id: 'rain', label: 'Rain on Window 🌧️' },
-                { id: 'ocean', label: 'Deep Ocean Waves 🌊' },
-                { id: 'cafe', label: 'Coffeehouse Vinyl ☕' },
-                { id: 'forest', label: 'Night Forest Breeze 🌲' },
-                { id: 'clock', label: 'Gentle Clock Ticks ⏱️' },
+                { id: 'rain', label: 'Rain on Window' },
+                { id: 'ocean', label: 'Ocean Waves' },
+                { id: 'cafe', label: 'Coffeehouse Vinyl' },
+                { id: 'forest', label: 'Night Forest' },
+                { id: 'clock', label: 'Gentle Clock' },
               ].map((sound) => (
                 <button
                   key={sound.id}
                   onClick={() => handleSelectSoundscape(sound.id as SoundscapeType)}
                   className={`p-3 rounded-2xl text-xs font-bold border transition-all text-left cursor-pointer ${
                     activeSoundscape === sound.id
-                      ? 'bg-[#ff4757]/20 border-[#ff4757] text-[#ff4757]'
-                      : 'bg-[#1d1f2d] border-[#292c3e] text-slate-300 hover:bg-[#252839]'
+                      ? 'bg-[#ff4757]/12 border-[#ff4757] text-[#ff4757]'
+                      : 'bg-slate-50 dark:bg-[#1d1f2d] border-slate-200 dark:border-[#292c3e] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#252839]'
                   }`}
                 >
                   {sound.label}
@@ -657,10 +979,10 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             </div>
 
             {/* Volume Slider */}
-            <div className="mb-5 p-3 rounded-2xl bg-[#1d1f2d] border border-[#292c3e]">
+            <div className="mb-5 p-3 rounded-2xl bg-slate-50 dark:bg-[#1d1f2d] border border-slate-200 dark:border-[#292c3e]">
               <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-semibold text-slate-300">Volume</span>
-                <span className="text-slate-400 font-mono">{Math.round(soundVolume * 100 * 5)}%</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Volume</span>
+                <span className="text-slate-500 dark:text-slate-400 font-mono">{Math.round(soundVolume * 100 * 5)}%</span>
               </div>
               <input
                 type="range"
@@ -699,7 +1021,11 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                 style={{ backgroundColor: activeFolder.color || themeRed }}
               />
               <span className="text-sm font-bold text-slate-300">
-                {activeTask ? `${activeTask.subjectName}: ${activeTask.topics}` : activeFolder.name}
+                {activeTask
+                  ? activeTask.topics
+                    ? `${activeTask.subjectName}: ${activeTask.topics}`
+                    : activeTask.subjectName
+                  : activeFolder.name}
               </span>
             </div>
 

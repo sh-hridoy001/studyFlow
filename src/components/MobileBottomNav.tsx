@@ -47,7 +47,7 @@ export const MobileBottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="sticky bottom-0 z-40 w-full bg-[#12131b]/95 backdrop-blur-md border-t border-[#222434] py-2 px-3 sm:px-6 shadow-2xl">
+    <nav className="sticky bottom-0 z-40 w-full bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#222434] pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-3 sm:px-6 shadow-lg">
       <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
@@ -55,27 +55,26 @@ export const MobileBottomNav: React.FC = () => {
             <button
               key={item.id}
               onClick={() => handleTabClick(item.id)}
-              className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all cursor-pointer select-none ${
+              className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all cursor-pointer select-none ${
                 isActive
                   ? 'text-[#ff4757] font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
-              {/* Active Pill Glow */}
               {isActive && (
-                <span className="absolute -top-2 w-6 h-1 rounded-full bg-[#ff4757] shadow-sm shadow-[#ff4757]" />
+                <span className="absolute -top-1.5 w-6 h-1 rounded-full bg-[#ff4757]" />
               )}
 
               <div className="relative">
                 {item.icon}
                 {item.badge && (
-                  <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500 text-black leading-none">
+                  <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500 text-white dark:text-black leading-none">
                     {item.badge}
                   </span>
                 )}
               </div>
 
-              <span className="text-[10px] mt-1 font-semibold truncate max-w-full">
+              <span className="text-[10px] mt-0.5 font-semibold truncate max-w-full">
                 {item.label}
               </span>
             </button>

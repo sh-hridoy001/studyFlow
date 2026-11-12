@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, signInWithGoogleAuth, signOutUser, testConnection } from '../services/firebase';
+import { auth, signInWithGoogleAuth, signOutUser, testConnection, deleteUserAccountAndData } from '../services/firebase';
 
 export interface AppUser {
   uid: string;
@@ -22,6 +22,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   continueAsGuest: () => void;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -134,6 +135,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const deleteAccount = async () => {
+    setError(null);
+    setErrorCode(null);
+    const currentUid = user?.uid;
+    const isGuestUser = !currentUid || currentUid.startsWith('guest_');
+
+    if (!isGuestUser && currentUid) {
+      await deleteUserAccountAndData(currentUid);
+    }
+
+    try {
+      localStorage.removeItem(GUEST_FLAG_KEY);
+      localStorage.removeItem(GUEST_UID_KEY);
+      localStorage.removeItem('focustrack_active_data');
+      localStorage.removeItem('focustrack_last_active_cache_key');
+      if (currentUid) {
+        localStorage.removeItem(`focustrack_cloud_cache_${currentUid}`);
+        localStorage.removeItem(`focustrack_guest_data_${currentUid}`);
+      }
+    } catch {}
+
+    setUser(null);
+  };
+
   const clearError = () => {
     setError(null);
     setErrorCode(null);
@@ -152,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         continueAsGuest,
         logout,
+        deleteAccount,
         clearError,
       }}
     >

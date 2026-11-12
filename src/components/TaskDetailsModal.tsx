@@ -46,13 +46,20 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
   // Safe folder resolution
   const folder =
-    folders.find((f) => f.id === task.folderId) ||
-    PRIMARY_FOLDERS[task.folderId] || {
-      name: 'General Study',
-      color: '#4F46E5',
-      badgeClass:
-        'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
-    };
+    task.folderId === 'general'
+      ? {
+          name: 'General',
+          color: '#6366F1',
+          badgeClass:
+            'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
+        }
+      : folders.find((f) => String(f.id) === String(task.folderId)) ||
+        PRIMARY_FOLDERS[task.folderId] || {
+          name: 'General',
+          color: '#6366F1',
+          badgeClass:
+            'text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800',
+        };
 
   // Safe task ID matching (string vs number safe)
   const isStopwatchActive =
@@ -76,10 +83,8 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   };
 
   const handleDelete = () => {
-    if (confirm(`Delete task "${task.subjectName}"?`)) {
-      deleteTask(task.id);
-      onClose();
-    }
+    deleteTask(task.id);
+    onClose();
   };
 
   const handleEdit = () => {
@@ -91,14 +96,14 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative my-8 animate-in fade-in duration-200 overflow-hidden"
+        className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#242636] rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative my-8 animate-in fade-in duration-200 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
-          borderTopWidth: '5px',
+          borderTopWidth: '4px',
           borderTopColor: folder.color,
         }}
       >

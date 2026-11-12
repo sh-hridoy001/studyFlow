@@ -19,6 +19,7 @@ import {
   Check,
   UserCheck,
 } from 'lucide-react';
+import { PrivacyLegalScreen } from './PrivacyLegalScreen';
 
 interface AuthScreenProps {
   theme: 'light' | 'dark';
@@ -36,6 +37,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ theme, onToggleTheme }) 
   } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+
+  if (showPrivacy) {
+    return (
+      <div className="min-h-screen bg-[#f5f7fb] dark:bg-[#0a0b10] p-4 sm:p-6">
+        <div className="max-w-2xl mx-auto">
+          <PrivacyLegalScreen
+            showAccountDeletion={false}
+            onBack={() => setShowPrivacy(false)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   const handleSignIn = async () => {
     setIsSigningIn(true);
@@ -294,8 +309,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ theme, onToggleTheme }) 
       </main>
 
       {/* Footer */}
-      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 text-center text-xs text-slate-400 dark:text-slate-600">
-        FocusTrack · Secured with Firebase Firestore & Authentication
+      <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 text-center text-xs text-slate-500 dark:text-slate-500 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+        <span>FocusTrack · Secured with Firebase Firestore &amp; Authentication</span>
+        <span>·</span>
+        <button
+          type="button"
+          onClick={() => setShowPrivacy(true)}
+          className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+        >
+          Privacy Policy &amp; Terms
+        </button>
       </footer>
     </div>
   );

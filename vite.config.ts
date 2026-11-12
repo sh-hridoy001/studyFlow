@@ -17,9 +17,11 @@ export default defineConfig(() => {
           name: 'FocusTrack - Study Tracker & Daily Planner',
           short_name: 'FocusTrack',
           description: 'Modern study tracker with Google Sign-In, Firestore cloud sync, dynamic folders, 5-time daily Salah tracker, and live stopwatch.',
-          theme_color: '#0f172a',
-          background_color: '#0f172a',
+          theme_color: '#0a0b10',
+          background_color: '#0a0b10',
           display: 'standalone',
+          orientation: 'portrait',
+          categories: ['education', 'productivity'],
           start_url: '/',
           scope: '/',
           icons: [

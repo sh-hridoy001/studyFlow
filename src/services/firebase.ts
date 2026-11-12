@@ -5,6 +5,8 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  deleteUser,
+  reauthenticateWithPopup,
   User,
 } from 'firebase/auth';
 import {
@@ -12,6 +14,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  deleteDoc,
   onSnapshot,
   getDocFromServer,
   Unsubscribe,
@@ -123,6 +126,28 @@ export interface UserStudyDataPayload {
 }
 
 /**
+ * Recursively removes keys with `undefined` values from objects and arrays
+ * because Firestore `setDoc` throws on any `undefined` field anywhere in a document.
+ */
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefinedDeep(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) {
+        result[k] = stripUndefinedDeep(v);
+      }
+    }
+    return result as T;
+  }
+  return value;
+}
+
+/**
  * Saves study data to users/{userId}/studyData/main document
  */
 export async function saveUserStudyDataToFirestore(
@@ -138,18 +163,19 @@ export async function saveUserStudyDataToFirestore(
 ): Promise<void> {
   const path = `users/${userId}/studyData/main`;
   try {
-    const payload: UserStudyDataPayload = {
-      folders: data.folders,
-      tasks: data.tasks,
-      dateRecords: data.dateRecords,
+    const rawPayload: UserStudyDataPayload = {
+      ...(data.folders !== undefined ? { folders: data.folders } : {}),
+      tasks: data.tasks || [],
+      dateRecords: data.dateRecords || {},
       salahRecords: data.salahRecords || {},
       milestones: data.milestones || [],
-      stopwatch: data.stopwatch,
+      ...(data.stopwatch !== undefined ? { stopwatch: data.stopwatch } : {}),
       lastUpdated: new Date().toISOString(),
       userEmail: auth.currentUser?.email || null,
       displayName: auth.currentUser?.displayName || null,
     };
 
+    const payload = stripUndefinedDeep(rawPayload);
     const docRef = doc(db, 'users', userId, 'studyData', 'main');
     await setDoc(docRef, payload, { merge: true });
   } catch (error) {
@@ -163,14 +189,16 @@ export async function saveUserStudyDataToFirestore(
 export async function resetUserStudyDataInFirestore(userId: string): Promise<void> {
   const path = `users/${userId}/studyData/main`;
   try {
-    const freshPayload: UserStudyDataPayload = {
+    const rawPayload: UserStudyDataPayload = {
       folders: DEFAULT_DYNAMIC_FOLDERS,
       tasks: [],
       dateRecords: {},
       salahRecords: {},
+      milestones: [],
       stopwatch: {
         taskId: null,
         folderId: null,
+        subjectName: null,
         isRunning: false,
         secondsElapsed: 0,
         lastTimestamp: Date.now(),
@@ -180,6 +208,7 @@ export async function resetUserStudyDataInFirestore(userId: string): Promise<voi
       displayName: auth.currentUser?.displayName || null,
     };
 
+    const freshPayload = stripUndefinedDeep(rawPayload);
     const docRef = doc(db, 'users', userId, 'studyData', 'main');
     await setDoc(docRef, freshPayload);
   } catch (error) {
@@ -247,4 +276,32 @@ export async function signInWithGoogleAuth(): Promise<User> {
 // Sign Out
 export async function signOutUser(): Promise<void> {
   await signOut(auth);
+}
+
+/**
+ * Permanently deletes user's Firestore data and Firebase Auth account
+ * Required for Google Play Store & Apple App Store compliance
+ */
+export async function deleteUserAccountAndData(userId: string): Promise<void> {
+  const path = `users/${userId}/studyData/main`;
+  try {
+    await deleteDoc(doc(db, 'users', userId, 'studyData', 'main')).catch(() => {});
+    await deleteDoc(doc(db, 'users', userId)).catch(() => {});
+
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        await deleteUser(currentUser);
+      } catch (err: any) {
+        if (err?.code === 'auth/requires-recent-login') {
+          await reauthenticateWithPopup(currentUser, googleProvider);
+          await deleteUser(currentUser);
+        } else {
+          throw err;
+        }
+      }
+    }
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
 }

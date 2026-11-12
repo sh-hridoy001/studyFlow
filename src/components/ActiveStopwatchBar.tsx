@@ -23,20 +23,20 @@ export const ActiveStopwatchBar: React.FC = () => {
     ? tasks.find((t) => String(t.id) === String(stopwatch.taskId))
     : null;
 
-  // Find folder from all dynamic folders (safe for custom folders like "Programming")
+  // Find folder from all dynamic folders (safe for custom folders & general tasks)
   const currentFolderId = stopwatch.folderId || currentTask?.folderId;
   const folder =
-    folders.find((f) => String(f.id) === String(currentFolderId)) || {
-      name: 'Study Folder',
-      color: '#4F46E5',
-    };
+    currentFolderId === 'general'
+      ? { name: 'General', color: '#6366F1' }
+      : folders.find((f) => String(f.id) === String(currentFolderId)) || {
+          name: 'General',
+          color: '#6366F1',
+        };
 
   const subjectTitle =
     currentTask?.subjectName ||
     stopwatch.subjectName ||
     `${folder.name} Study Session`;
-
-  const topicSubtitle = currentTask?.topics || 'Folder study session in progress';
 
   const hours = Math.floor(stopwatch.secondsElapsed / 3600);
   const minutes = Math.floor((stopwatch.secondsElapsed % 3600) / 60);
@@ -47,107 +47,65 @@ export const ActiveStopwatchBar: React.FC = () => {
     <div
       role="region"
       aria-label="Active Study Timer"
-      className="sticky top-16 z-30 w-full bg-slate-900/95 dark:bg-slate-900/95 text-white border-b border-indigo-500/30 backdrop-blur-md shadow-lg transition-all animate-in slide-in-from-top-2 duration-200"
+      className="sticky top-[57px] z-30 w-full bg-white/95 dark:bg-[#12131c]/95 text-slate-900 dark:text-white border-b border-slate-200 dark:border-[#242636] backdrop-blur-md shadow-sm transition-all animate-in slide-in-from-top-2 duration-200"
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-2xl mx-auto px-3.5 sm:px-6 py-2 flex items-center justify-between gap-2.5">
         {/* Left: Active Subject & Folder Info */}
-        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-          <div className="relative shrink-0 flex items-center justify-center">
-            <div
-              className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs ${
-                stopwatch.isRunning ? 'animate-pulse' : 'opacity-80'
-              }`}
-              style={{ backgroundColor: folder.color }}
-            >
-              <Timer className="w-4 h-4" />
-            </div>
-            {stopwatch.isRunning && (
-              <span
-                className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-slate-900 animate-ping"
-                style={{ backgroundColor: folder.color }}
-              />
-            )}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className={`w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-xs shrink-0 ${
+              stopwatch.isRunning ? 'animate-pulse' : 'opacity-80'
+            }`}
+            style={{ backgroundColor: folder.color }}
+          >
+            <Timer className="w-4 h-4" />
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span
-                className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded border"
-                style={{
-                  color: folder.color,
-                  borderColor: `${folder.color}50`,
-                  backgroundColor: `${folder.color}20`,
-                }}
-              >
-                {folder.name}
-              </span>
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
-                {stopwatch.isRunning ? '• Live Study Timer' : '• Paused'}
+            <div className="flex items-center gap-1.5 text-[10px] font-bold">
+              <span style={{ color: folder.color }}>{folder.name}</span>
+              <span className="text-slate-400">·</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                {stopwatch.isRunning ? 'Running' : 'Paused'}
               </span>
             </div>
-            <h4 className="font-bold text-xs sm:text-sm text-white truncate leading-tight mt-0.5">
+            <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate leading-tight mt-0.5">
               {subjectTitle}
             </h4>
           </div>
         </div>
 
-        {/* Right: Big Counter & Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 ml-auto shrink-0">
-          {/* Digital Timer Display */}
-          <div className="font-mono text-lg sm:text-2xl font-black tracking-tight tabular-nums px-2.5 sm:px-3 py-1 bg-slate-950/70 border border-slate-700/60 rounded-xl text-indigo-400 shadow-inner">
+        {/* Right: Counter & Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+          <div className="font-mono text-sm sm:text-base font-extrabold tracking-tight tabular-nums px-2.5 py-1 bg-slate-100 dark:bg-[#191b28] border border-slate-200 dark:border-[#2a2d40] rounded-xl text-[#ff4757]">
             {formattedStopwatch}
           </div>
 
-          {/* Pause / Resume Button */}
           <button
             type="button"
             onClick={() => toggleStopwatch()}
-            className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ${
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer ${
               stopwatch.isRunning
                 ? 'bg-amber-500 hover:bg-amber-600 text-slate-950'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                : 'bg-[#ff4757] hover:bg-[#ff3344] text-white'
             }`}
             title={stopwatch.isRunning ? 'Pause Timer' : 'Resume Timer'}
           >
             {stopwatch.isRunning ? (
-              <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span className="hidden sm:inline">Pause</span>
-              </>
+              <Pause className="w-3.5 h-3.5 fill-current" />
             ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span className="hidden sm:inline">Resume</span>
-              </>
+              <Play className="w-3.5 h-3.5 fill-current" />
             )}
           </button>
 
-          {/* Stop & Save Button (100% saves time immediately) */}
           <button
             type="button"
             onClick={stopAndSaveStopwatch}
-            className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-            title="Stop timer and save study time"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            title="Save study time"
           >
             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden sm:inline">Save Time</span>
-          </button>
-
-          {/* Cancel / Reset */}
-          <button
-            type="button"
-            onClick={() => {
-              if (
-                stopwatch.secondsElapsed < 15 ||
-                confirm('Stop and save study time for this session?')
-              ) {
-                stopAndSaveStopwatch();
-              }
-            }}
-            className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-            title="Close / Finish"
-          >
-            <Square className="w-3.5 h-3.5 fill-current" />
+            <span className="hidden sm:inline">Save</span>
           </button>
         </div>
       </div>

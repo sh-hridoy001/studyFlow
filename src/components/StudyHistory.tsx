@@ -131,98 +131,98 @@ export const StudyHistory: React.FC<StudyHistoryProps> = ({
   const currentSummary = summaryView === 'week' ? weeklySummary : monthlySummary;
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-5 pb-10">
       {/* 1. Weekly & Monthly Summary Cards */}
-      <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              <TrendingUp className="w-4 h-4 text-indigo-500" />
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <TrendingUp className="w-3.5 h-3.5 text-[#ff4757]" />
               <span>Aggregate Study Analytics</span>
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-1 tracking-tight">
+            <h2 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white mt-0.5 tracking-tight">
               {summaryView === 'week' ? 'This Week’s Study Summary' : 'This Month’s Study Summary'}
             </h2>
           </div>
 
           {/* Toggle between Weekly and Monthly */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start sm:self-auto text-xs">
+          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-[#191b27] border border-slate-200 dark:border-[#26293a] rounded-xl self-start sm:self-auto text-xs">
             <button
               onClick={() => setSummaryView('week')}
-              className={`px-3 py-1.5 font-semibold rounded-lg transition-colors ${
+              className={`px-3 py-1 font-bold rounded-lg transition-colors cursor-pointer ${
                 summaryView === 'week'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-[#26293b] text-slate-900 dark:text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Weekly Overview
+              Weekly
             </button>
             <button
               onClick={() => setSummaryView('month')}
-              className={`px-3 py-1.5 font-semibold rounded-lg transition-colors ${
+              className={`px-3 py-1 font-bold rounded-lg transition-colors cursor-pointer ${
                 summaryView === 'month'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-[#26293b] text-slate-900 dark:text-white shadow-2xs'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Monthly Overview
+              Monthly
             </button>
           </div>
         </div>
 
         {/* 4-KPI Overview Row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 mb-5">
           {/* KPI 1 */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-              {summaryView === 'week' ? 'Hours This Week' : 'Hours This Month'}
+          <div className="bg-slate-50 dark:bg-[#181a25] border border-slate-200/80 dark:border-[#26293b] rounded-xl p-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">
+              {summaryView === 'week' ? 'This Week' : 'This Month'}
             </span>
-            <div className="text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
+            <div className="text-xl sm:text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
               {formatDuration(currentSummary.totalActualMinutes)}
             </div>
-            <span className="text-xs text-slate-400 font-mono mt-1 block">
-              Target: {formatDuration(currentSummary.totalTargetMinutes)}
+            <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+              Goal: {formatDuration(currentSummary.totalTargetMinutes)}
             </span>
           </div>
 
           {/* KPI 2 */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-              Active Study Days
+          <div className="bg-slate-50 dark:bg-[#181a25] border border-slate-200/80 dark:border-[#26293b] rounded-xl p-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">
+              Active Days
             </span>
-            <div className="text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
+            <div className="text-xl sm:text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
               {currentSummary.activeDaysCount}{' '}
               <span className="text-xs font-sans text-slate-500">days</span>
             </div>
-            <span className="text-xs text-slate-400 font-mono mt-1 block">
-              Avg: {(currentSummary.totalActualMinutes / Math.max(1, currentSummary.activeDaysCount) / 60).toFixed(1)}h / active day
+            <span className="text-[11px] text-slate-400 font-mono mt-0.5 block">
+              Avg: {(currentSummary.totalActualMinutes / Math.max(1, currentSummary.activeDaysCount) / 60).toFixed(1)}h/d
             </span>
           </div>
 
           {/* KPI 3 */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
+          <div className="bg-slate-50 dark:bg-[#181a25] border border-slate-200/80 dark:border-[#26293b] rounded-xl p-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">
               Habit Streak
             </span>
-            <div className="text-3xl font-extrabold font-mono text-slate-900 dark:text-white flex items-center gap-1.5">
+            <div className="text-xl sm:text-2xl font-extrabold font-mono text-slate-900 dark:text-white flex items-center gap-1.5">
               <span>{streakDays}</span>
-              <Flame className="w-5 h-5 text-amber-500" />
+              <Flame className="w-4 h-4 text-amber-500" />
             </div>
-            <span className="text-xs text-slate-400 mt-1 block">
-              {streakDays > 0 ? 'Consecutive daily study' : 'Study today to start!'}
+            <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
+              {streakDays > 0 ? 'Consecutive days' : 'Start today!'}
             </span>
           </div>
 
           {/* KPI 4 */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1">
-              All-Time Recorded
+          <div className="bg-slate-50 dark:bg-[#181a25] border border-slate-200/80 dark:border-[#26293b] rounded-xl p-3">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-0.5">
+              All-Time
             </span>
-            <div className="text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
+            <div className="text-xl sm:text-2xl font-extrabold font-mono text-slate-900 dark:text-white">
               {formatDuration(allTimeTotalMinutes)}
             </div>
-            <span className="text-xs text-slate-400 mt-1 block">
-              Cumulative study time
+            <span className="text-[11px] text-slate-400 mt-0.5 block">
+              Total logged
             </span>
           </div>
         </div>
