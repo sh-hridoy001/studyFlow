@@ -2,14 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { StudyProvider, useStudy } from './context/StudyContext';
 import { AuthScreen } from './components/AuthScreen';
-import { Header } from './components/Header';
-import { DailyOverviewHero } from './components/DailyOverviewHero';
+import { MobileAppHeader } from './components/MobileAppHeader';
+import { MobileSidebarDrawer } from './components/MobileSidebarDrawer';
+import { ProminentAddTaskBanner } from './components/ProminentAddTaskBanner';
+import { CircularTimerDial } from './components/CircularTimerDial';
+import { MobileTaskCardList } from './components/MobileTaskCardList';
+import { GitHubConsistencyHeatmap } from './components/GitHubConsistencyHeatmap';
+import { MobileBottomNav } from './components/MobileBottomNav';
 import { FolderSummaryCards } from './components/FolderSummaryCards';
 import { TasksList } from './components/TasksList';
 import { StudyHistory } from './components/StudyHistory';
 import { SalahTracker } from './components/SalahTracker';
 import { ActiveStopwatchBar } from './components/ActiveStopwatchBar';
 import { FolderDetailView } from './components/FolderDetailView';
+import { FolderManageModal } from './components/FolderManageModal';
 import { NewTaskModal } from './components/NewTaskModal';
 import { TaskDetailsModal } from './components/TaskDetailsModal';
 import { StartNewDayModal } from './components/StartNewDayModal';
@@ -18,11 +24,9 @@ import { SyncCalendarModal } from './components/SyncCalendarModal';
 import { CalendarSettingsModal } from './components/CalendarSettingsModal';
 import { ResetAllDataModal } from './components/ResetAllDataModal';
 import { MilestoneCountdownWidget } from './components/MilestoneCountdownWidget';
-import { ConsistencyHeatmap } from './components/ConsistencyHeatmap';
 import { ExportReportModal } from './components/ExportReportModal';
 import { DailyTask } from './types';
-import { Cloud, Calendar, Download, Loader2, Timer, Moon, CheckSquare } from 'lucide-react';
-import { downloadSingleFileApp } from './utils/singleFileGenerator';
+import { Loader2, Timer } from 'lucide-react';
 
 function AppContent() {
   const {
@@ -34,6 +38,10 @@ function AppContent() {
     setSelectedFolderId,
   } = useStudy();
 
+  // Modal & Drawer States
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFolderManagerOpen, setIsFolderManagerOpen] = useState(false);
+  const [folderManagerTargetId, setFolderManagerTargetId] = useState<string | undefined>();
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [defaultFolder, setDefaultFolder] = useState<string | undefined>();
   const [editingTask, setEditingTask] = useState<DailyTask | null>(null);
@@ -73,34 +81,35 @@ function AppContent() {
     setIsSyncCalendarOpen(true);
   };
 
+  const handleOpenFolderManager = (folderId?: string) => {
+    setFolderManagerTargetId(folderId);
+    setIsFolderManagerOpen(true);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500 selection:text-white w-full overflow-x-hidden">
-      {/* Top Header with User Profile, Salah tab, and Reset All Data option */}
-      <Header
+    <div className="min-h-screen bg-[#0d0e14] dark:bg-[#0a0b10] text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-hidden font-sans">
+      {/* Mobile App Top Header with user greeting, avatar, and sidebar drawer toggle */}
+      <MobileAppHeader
+        onOpenSidebar={() => setIsSidebarOpen(true)}
         onOpenAddTask={() => handleOpenAddTask()}
-        onOpenResetDay={() => setIsResetDayOpen(true)}
-        onOpenSyncCalendar={() => handleOpenSyncCalendar()}
-        onOpenCalendarSettings={() => setIsCalendarSettingsOpen(true)}
-        onOpenResetAllData={() => setIsResetAllOpen(true)}
-        onOpenExportReport={() => setIsExportReportOpen(true)}
       />
 
-      {/* Sticky Active Stopwatch Bar right below the Navigation Bar (No Netlify overlay conflict!) */}
-      <ActiveStopwatchBar />
+      {/* Sticky Active Stopwatch Bar when timer is running on other tabs or views */}
+      {activeTab !== 'routine' && <ActiveStopwatchBar />}
 
       {/* Cloud Loading Banner if fetching initial Firestore state */}
       {isDataLoading && (
-        <div className="bg-indigo-600 text-white text-xs py-1.5 px-4 text-center font-medium flex items-center justify-center gap-2">
+        <div className="bg-[#ff4757] text-white text-xs py-1 px-4 text-center font-bold flex items-center justify-center gap-2 shadow-md">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           <span>Syncing study records from Firebase Firestore...</span>
         </div>
       )}
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 overflow-x-hidden">
+      {/* Mobile-Centric Main Container (Optimized for phones & tablet/desktop app view) */}
+      <main className="flex-1 w-full max-w-2xl mx-auto px-3.5 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6 overflow-x-hidden pb-20">
         {activeTab === 'routine' ? (
           selectedFolderId ? (
-            /* Mobile App-style Folder Drill-down Workspace View */
+            /* Folder Detail Drill-Down View (Mobile-style workspace) */
             <FolderDetailView
               folderId={selectedFolderId}
               onBack={() => setSelectedFolderId(null)}
@@ -109,38 +118,58 @@ function AppContent() {
               onViewTask={handleViewTask}
             />
           ) : (
-            <>
-              {/* 1. Daily Overview Hero with Total Target vs Actual Study Time */}
-              <DailyOverviewHero
+            /* Home Page as Requested by User:
+               1. Big Add Task at the very top
+               2. Current Study Time (Circular Dial Timer)
+               3. Today's Task / Daily Task
+               4. Sobar niche GitHub Consistency Heatmap
+            */
+            <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
+              {/* 1. Timer at the TOP per user request */}
+              <CircularTimerDial
                 onOpenAddTask={() => handleOpenAddTask()}
-                onOpenResetDay={() => setIsResetDayOpen(true)}
-                onOpenSyncCalendar={() => handleOpenSyncCalendar()}
               />
 
-              {/* 2. Upcoming Exam & Milestone Countdown Widget */}
-              <MilestoneCountdownWidget />
+              {/* 2. Add Task Banner directly below the Timer */}
+              <ProminentAddTaskBanner
+                onOpenAddTask={() => handleOpenAddTask()}
+              />
 
-              {/* 3. Dynamic Folder Cards & Subject Manager */}
-              <FolderSummaryCards />
-
-              {/* 4. Daily Target Tasks List with Checkboxes, View Task, & Interactive Stopwatch */}
-              <TasksList
-                onOpenAddTask={handleOpenAddTask}
+              {/* 3. Today's Tasks / Daily Tasks */}
+              <MobileTaskCardList
+                onOpenAddTask={() => handleOpenAddTask()}
                 onEditTask={handleEditTask}
                 onViewTask={handleViewTask}
               />
 
-              {/* 5. 35-Day Consistency Heatmap & Streak */}
-              <ConsistencyHeatmap />
-            </>
+              {/* 4. Sobar Niche GitHub Consistency Heatmap with Day Click Activity Breakdown */}
+              <GitHubConsistencyHeatmap />
+            </div>
           )
+        ) : activeTab === 'tasks' ? (
+          /* Dedicated Tasks View */
+          <div className="space-y-5 animate-in fade-in duration-200">
+            <ProminentAddTaskBanner onOpenAddTask={() => handleOpenAddTask()} />
+            <MobileTaskCardList
+              onOpenAddTask={() => handleOpenAddTask()}
+              onEditTask={handleEditTask}
+              onViewTask={handleViewTask}
+            />
+          </div>
         ) : activeTab === 'salah' ? (
           /* 5-Time Daily Salah Tracker Section */
-          <SalahTracker />
+          <div className="animate-in fade-in duration-200">
+            <SalahTracker />
+          </div>
+        ) : activeTab === 'milestones' ? (
+          /* Exam & Milestone Countdown Targets */
+          <div className="space-y-5 animate-in fade-in duration-200">
+            <MilestoneCountdownWidget />
+          </div>
         ) : (
-          /* Study History & Past Records Section with Consistency Heatmap */
-          <div className="space-y-6">
-            <ConsistencyHeatmap />
+          /* Study History & Past Records Section */
+          <div className="space-y-5 animate-in fade-in duration-200">
+            <GitHubConsistencyHeatmap />
             <StudyHistory
               onOpenLogPastModal={handleOpenLogPast}
               onOpenSyncCalendar={(dateKey) => handleOpenSyncCalendar(dateKey)}
@@ -149,66 +178,32 @@ function AppContent() {
         )}
       </main>
 
-      {/* Quiet Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 py-6 text-xs text-slate-500 dark:text-slate-400 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-          <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
-            <span className="font-semibold text-slate-700 dark:text-slate-300">FocusTrack</span>
-            <span aria-hidden="true">·</span>
-            <span>Dynamic Study Planner & Salah Tracker</span>
-          </div>
+      {/* Mobile Bottom Navigation Bar (Home, Tasks, Salah, Goals, History) */}
+      <MobileBottomNav />
 
-          <div className="flex items-center gap-4 flex-wrap justify-center">
-            <button
-              onClick={() => {
-                setSelectedFolderId(null);
-                setActiveTab('routine');
-              }}
-              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
-                activeTab === 'routine' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span>Routine</span>
-            </button>
+      {/* Mobile Slide-Out Sidebar Drawer (User requested: manage folder, create folder, theme, settings all here) */}
+      <MobileSidebarDrawer
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onOpenFolderManager={handleOpenFolderManager}
+        onOpenResetDay={() => setIsResetDayOpen(true)}
+        onOpenSyncCalendar={() => handleOpenSyncCalendar()}
+        onOpenExportReport={() => setIsExportReportOpen(true)}
+        onOpenResetAllData={() => setIsResetAllOpen(true)}
+      />
 
-            <button
-              onClick={() => setActiveTab('salah')}
-              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
-                activeTab === 'salah' ? 'text-emerald-600 dark:text-emerald-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Moon className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Salah Tracker</span>
-            </button>
+      {/* Modals & Dialogs */}
+      {/* Folder & Subject Manager Modal (accessible from sidebar) */}
+      <FolderManageModal
+        isOpen={isFolderManagerOpen}
+        onClose={() => {
+          setIsFolderManagerOpen(false);
+          setFolderManagerTargetId(undefined);
+        }}
+        initialFolderId={folderManagerTargetId}
+      />
 
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer ${
-                activeTab === 'history' ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>History</span>
-            </button>
-
-            <button
-              onClick={downloadSingleFileApp}
-              className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Single-File HTML</span>
-            </button>
-
-            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
-              <Cloud className="w-3.5 h-3.5" />
-              <span>{syncStatus === 'synced' ? 'Synchronized' : syncStatus}</span>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Modals */}
+      {/* Add / Edit Task Modal */}
       <NewTaskModal
         isOpen={isAddTaskOpen}
         onClose={() => {
@@ -219,7 +214,7 @@ function AppContent() {
         editingTask={editingTask}
       />
 
-      {/* Task Details Modal (for View Task button and task row click) */}
+      {/* Task Details Modal */}
       <TaskDetailsModal
         isOpen={!!viewingTask}
         task={viewingTask}
@@ -227,11 +222,13 @@ function AppContent() {
         onEditTask={handleEditTask}
       />
 
+      {/* Start New Day Modal */}
       <StartNewDayModal
         isOpen={isResetDayOpen}
         onClose={() => setIsResetDayOpen(false)}
       />
 
+      {/* Log Past Study Modal */}
       <LogPastStudyModal
         isOpen={isLogPastOpen}
         onClose={() => {
@@ -252,7 +249,7 @@ function AppContent() {
         onOpenSettings={() => setIsCalendarSettingsOpen(true)}
       />
 
-      {/* Google OAuth & Client ID Settings Modal */}
+      {/* Google Calendar OAuth & Client Settings Modal */}
       <CalendarSettingsModal
         isOpen={isCalendarSettingsOpen}
         onClose={() => setIsCalendarSettingsOpen(false)}
@@ -303,18 +300,18 @@ function AppRouter() {
   // Loading spinner during auth initialization
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0d0e14] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-amber-500 flex items-center justify-center text-white shadow-lg animate-pulse">
-            <Timer className="w-6 h-6" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#ff4757] via-[#f43f5e] to-amber-500 flex items-center justify-center text-white shadow-xl animate-pulse">
+            <Timer className="w-7 h-7" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-black text-white tracking-tight">
               FocusTrack
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-              <span>Checking authentication...</span>
+            <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#ff4757]" />
+              <span>Connecting to cloud storage...</span>
             </p>
           </div>
         </div>
