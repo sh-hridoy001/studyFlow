@@ -22,7 +22,6 @@ import {
   MapPin,
   Navigation,
   Loader2,
-  Clock,
   Edit2,
 } from 'lucide-react';
 
@@ -33,9 +32,28 @@ interface SavedLocation {
   mode: 'gps' | 'city';
 }
 
-type PrayerTimingsMap = Record<SalahPrayerName, string>;
+interface PrayerWindow {
+  start: string;
+  end: string;
+  startMinutes: number;
+  endMinutes: number;
+}
+
+type PrayerTimingsMap = Record<SalahPrayerName, PrayerWindow>;
 
 const LOCATION_STORAGE_KEY = 'focustrack_salah_location_v1';
+const SCHOOL_STORAGE_KEY = 'focustrack_salah_school_v1';
+
+const parseTime24Minutes = (time24?: string): number => {
+  if (!time24) return -1;
+  const clean = time24.split(' ')[0];
+  const parts = clean.split(':');
+  if (parts.length < 2) return -1;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return -1;
+  return h * 60 + m;
+};
 
 const formatTime12h = (time24?: string): string => {
   if (!time24) return '';
@@ -75,15 +93,36 @@ export const SalahTracker: React.FC = () => {
       return null;
     }
   });
+  // school: 1 = Hanafi (default), 0 = Shafi / Standard
+  const [asrSchool, setAsrSchool] = useState<0 | 1>(() => {
+    try {
+      const saved = localStorage.getItem(SCHOOL_STORAGE_KEY);
+      return saved === '0' ? 0 : 1;
+    } catch {
+      return 1;
+    }
+  });
   const [cityInput, setCityInput] = useState<string>(location?.city || '');
   const [isEditingLocation, setIsEditingLocation] = useState<boolean>(false);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [timings, setTimings] = useState<PrayerTimingsMap | null>(null);
   const [isLoadingTimings, setIsLoadingTimings] = useState<boolean>(false);
+  const [nowMinutes, setNowMinutes] = useState<number>(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
 
-  // Fetch prayer times from Aladhan API
-  const fetchTimings = useCallback(async (loc: SavedLocation, dateKey: string) => {
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  // Fetch prayer times from Aladhan API (including Start & End window for each Waqt)
+  const fetchTimings = useCallback(async (loc: SavedLocation, dateKey: string, school: 0 | 1) => {
     setIsLoadingTimings(true);
     setLocationError(null);
     const aladhanDate = formatAladhanDate(dateKey);
@@ -91,11 +130,11 @@ export const SalahTracker: React.FC = () => {
     try {
       let url = '';
       if (loc.mode === 'gps' && loc.lat !== undefined && loc.lng !== undefined) {
-        url = `https://api.aladhan.com/v1/timings/${aladhanDate}?latitude=${loc.lat}&longitude=${loc.lng}&method=1`;
+        url = `https://api.aladhan.com/v1/timings/${aladhanDate}?latitude=${loc.lat}&longitude=${loc.lng}&method=1&school=${school}`;
       } else if (loc.city.trim()) {
         url = `https://api.aladhan.com/v1/timingsByAddress/${aladhanDate}?address=${encodeURIComponent(
           loc.city.trim()
-        )}&method=1`;
+        )}&method=1&school=${school}`;
       }
 
       if (!url) {
@@ -110,11 +149,36 @@ export const SalahTracker: React.FC = () => {
 
       if (rawTimings) {
         setTimings({
-          fajr: formatTime12h(rawTimings.Fajr),
-          dhuhr: formatTime12h(rawTimings.Dhuhr),
-          asr: formatTime12h(rawTimings.Asr),
-          maghrib: formatTime12h(rawTimings.Maghrib),
-          isha: formatTime12h(rawTimings.Isha),
+          fajr: {
+            start: formatTime12h(rawTimings.Fajr),
+            end: formatTime12h(rawTimings.Sunrise),
+            startMinutes: parseTime24Minutes(rawTimings.Fajr),
+            endMinutes: parseTime24Minutes(rawTimings.Sunrise),
+          },
+          dhuhr: {
+            start: formatTime12h(rawTimings.Dhuhr),
+            end: formatTime12h(rawTimings.Asr),
+            startMinutes: parseTime24Minutes(rawTimings.Dhuhr),
+            endMinutes: parseTime24Minutes(rawTimings.Asr),
+          },
+          asr: {
+            start: formatTime12h(rawTimings.Asr),
+            end: formatTime12h(rawTimings.Maghrib),
+            startMinutes: parseTime24Minutes(rawTimings.Asr),
+            endMinutes: parseTime24Minutes(rawTimings.Maghrib),
+          },
+          maghrib: {
+            start: formatTime12h(rawTimings.Maghrib),
+            end: formatTime12h(rawTimings.Isha),
+            startMinutes: parseTime24Minutes(rawTimings.Maghrib),
+            endMinutes: parseTime24Minutes(rawTimings.Isha),
+          },
+          isha: {
+            start: formatTime12h(rawTimings.Isha),
+            end: formatTime12h(rawTimings.Fajr),
+            startMinutes: parseTime24Minutes(rawTimings.Isha),
+            endMinutes: parseTime24Minutes(rawTimings.Fajr),
+          },
         });
       } else {
         throw new Error('City not found');
@@ -190,12 +254,20 @@ export const SalahTracker: React.FC = () => {
     }
   }, [location, detectLocation]);
 
-  // Refetch timings whenever location or selectedSalahDate changes
+  // Refetch timings whenever location, date, or Asr calculation school changes
   useEffect(() => {
     if (location) {
-      fetchTimings(location, selectedSalahDate);
+      fetchTimings(location, selectedSalahDate, asrSchool);
     }
-  }, [location, selectedSalahDate, fetchTimings]);
+  }, [location, selectedSalahDate, asrSchool, fetchTimings]);
+
+  const handleToggleAsrSchool = () => {
+    const next: 0 | 1 = asrSchool === 1 ? 0 : 1;
+    setAsrSchool(next);
+    try {
+      localStorage.setItem(SCHOOL_STORAGE_KEY, String(next));
+    } catch {}
+  };
 
   const handleSaveManualCity = (e: React.FormEvent) => {
     e.preventDefault();
@@ -225,7 +297,7 @@ export const SalahTracker: React.FC = () => {
     key: SalahPrayerName;
     name: string;
     arabicName: string;
-    fallbackTiming: string;
+    fallbackWindow: { start: string; end: string };
     icon: React.ElementType;
     color: string;
   }[] = [
@@ -233,7 +305,7 @@ export const SalahTracker: React.FC = () => {
       key: 'fajr',
       name: 'Fajr',
       arabicName: 'الفجر',
-      fallbackTiming: 'Dawn',
+      fallbackWindow: { start: 'Dawn', end: 'Sunrise' },
       icon: Sunrise,
       color: '#6366F1',
     },
@@ -241,7 +313,7 @@ export const SalahTracker: React.FC = () => {
       key: 'dhuhr',
       name: 'Dhuhr',
       arabicName: 'الظهر',
-      fallbackTiming: 'Midday',
+      fallbackWindow: { start: 'Midday', end: 'Before Asr' },
       icon: Sun,
       color: '#F59E0B',
     },
@@ -249,7 +321,7 @@ export const SalahTracker: React.FC = () => {
       key: 'asr',
       name: 'Asr',
       arabicName: 'العصر',
-      fallbackTiming: 'Afternoon',
+      fallbackWindow: { start: 'Afternoon', end: 'Sunset' },
       icon: CloudSun,
       color: '#EA580C',
     },
@@ -257,7 +329,7 @@ export const SalahTracker: React.FC = () => {
       key: 'maghrib',
       name: 'Maghrib',
       arabicName: 'المغرب',
-      fallbackTiming: 'Sunset',
+      fallbackWindow: { start: 'Sunset', end: 'Before Isha' },
       icon: Sunset,
       color: '#EC4899',
     },
@@ -265,11 +337,22 @@ export const SalahTracker: React.FC = () => {
       key: 'isha',
       name: 'Isha',
       arabicName: 'العشاء',
-      fallbackTiming: 'Night',
+      fallbackWindow: { start: 'Night', end: 'Before Fajr' },
       icon: Moon,
       color: '#8B5CF6',
     },
   ];
+
+  const isWindowActive = (key: SalahPrayerName): boolean => {
+    if (!isToday(selectedSalahDate) || !timings) return false;
+    const w = timings[key];
+    if (!w || w.startMinutes < 0 || w.endMinutes < 0) return false;
+    if (w.endMinutes > w.startMinutes) {
+      return nowMinutes >= w.startMinutes && nowMinutes < w.endMinutes;
+    }
+    // Overnight wrap (Isha starts in evening, ends at next morning Fajr)
+    return nowMinutes >= w.startMinutes || nowMinutes < w.endMinutes;
+  };
 
   const completedCount =
     (record.fajr ? 1 : 0) +
@@ -293,13 +376,12 @@ export const SalahTracker: React.FC = () => {
   return (
     <div className="space-y-4 pb-8 w-full overflow-x-hidden">
       {/* Compact Overview & City Prayer Time Bar */}
-      <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+      <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-4 sm:p-5 shadow-xs relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3.5">
           <div>
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-              <span>Daily Salah Tracker</span>
-            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+              Daily Salah Tracker
+            </span>
             <h1 className="text-base sm:text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 tracking-tight">
               {formatFullDate(selectedSalahDate)}
             </h1>
@@ -308,8 +390,9 @@ export const SalahTracker: React.FC = () => {
           {/* Date Selector Navigation */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
+              type="button"
               onClick={() => stepDate(-1)}
-              className="p-1.5 rounded-xl border border-slate-200 dark:border-[#2a2d3e] hover:bg-slate-100 dark:hover:bg-[#1c1e2c] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-2 rounded-xl border border-slate-200 dark:border-[#2a2d3e] hover:bg-slate-100 dark:hover:bg-[#1c1e2c] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               title="Previous Day"
               aria-label="Previous Day"
             >
@@ -318,16 +401,18 @@ export const SalahTracker: React.FC = () => {
 
             {!isToday(selectedSalahDate) && (
               <button
+                type="button"
                 onClick={jumpToToday}
-                className="px-2.5 py-1 text-[11px] font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 cursor-pointer"
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 cursor-pointer whitespace-nowrap"
               >
                 Today
               </button>
             )}
 
             <button
+              type="button"
               onClick={() => stepDate(1)}
-              className="p-1.5 rounded-xl border border-slate-200 dark:border-[#2a2d3e] hover:bg-slate-100 dark:hover:bg-[#1c1e2c] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              className="p-2 rounded-xl border border-slate-200 dark:border-[#2a2d3e] hover:bg-slate-100 dark:hover:bg-[#1c1e2c] text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               title="Next Day"
               aria-label="Next Day"
             >
@@ -340,29 +425,29 @@ export const SalahTracker: React.FC = () => {
               onChange={(e) => {
                 if (e.target.value) setSelectedSalahDate(e.target.value);
               }}
-              className="bg-slate-100 dark:bg-[#1b1d29] border border-slate-200 dark:border-[#2a2d3e] rounded-xl px-2 py-1 text-[11px] text-slate-800 dark:text-slate-200 font-mono font-medium cursor-pointer"
+              className="bg-slate-100 dark:bg-[#1b1d29] border border-slate-200 dark:border-[#2a2d3e] rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 font-mono font-medium cursor-pointer"
             />
           </div>
         </div>
 
-        {/* City / Location Bar for Today's Prayer Times */}
-        <div className="mb-3 p-2.5 rounded-xl bg-slate-50 dark:bg-[#191b27] border border-slate-200 dark:border-[#26293a]">
+        {/* City / Location Bar for Today's Prayer Start & End Times */}
+        <div className="mb-3.5 p-3 rounded-2xl bg-slate-50 dark:bg-[#181a26] border border-slate-200 dark:border-[#26293a]">
           {isEditingLocation || !location ? (
             <form onSubmit={handleSaveManualCity} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <MapPin className="w-3.5 h-3.5 text-[#ff4757] shrink-0" />
+                <MapPin className="w-4 h-4 text-[#ff4757] shrink-0" />
                 <input
                   type="text"
                   value={cityInput}
                   onChange={(e) => setCityInput(e.target.value)}
                   placeholder="Enter your city (e.g. Dhaka, London, Sylhet)..."
-                  className="w-full bg-white dark:bg-[#12131b] border border-slate-200 dark:border-[#2b2e40] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                  className="w-full bg-white dark:bg-[#12131b] border border-slate-200 dark:border-[#2b2e40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="submit"
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                  className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer transition-colors whitespace-nowrap"
                 >
                   Set City
                 </button>
@@ -370,16 +455,16 @@ export const SalahTracker: React.FC = () => {
                   type="button"
                   onClick={detectLocation}
                   disabled={isLocating}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-[#232638] hover:bg-slate-300 dark:hover:bg-[#2c3046] text-slate-700 dark:text-slate-200 text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-slate-200 dark:bg-[#232638] hover:bg-slate-300 dark:hover:bg-[#2c3046] text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1 cursor-pointer whitespace-nowrap"
                   title="Auto-detect GPS location"
                 >
-                  {isLocating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
-                  <span>Auto</span>
+                  {isLocating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
+                  <span>Auto GPS</span>
                 </button>
               </div>
             </form>
           ) : (
-            <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                 <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
@@ -387,29 +472,37 @@ export const SalahTracker: React.FC = () => {
                 </span>
                 {isLoadingTimings && <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0" />}
                 {!isLoadingTimings && timings && (
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold hidden xs:inline">
-                    · Prayer times synced
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium hidden sm:inline">
+                    · Start &amp; end windows synced
                   </span>
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleToggleAsrSchool}
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#2a2d3e] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:border-emerald-500/50 cursor-pointer whitespace-nowrap"
+                  title="Switch Asr juristic method"
+                >
+                  {asrSchool === 1 ? 'Asr: Hanafi' : 'Asr: Standard'}
+                </button>
                 <button
                   type="button"
                   onClick={detectLocation}
                   disabled={isLocating}
-                  className="px-2 py-1 rounded-lg bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#2a2d3e] text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-500 flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#2a2d3e] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-500 flex items-center gap-1 cursor-pointer whitespace-nowrap"
                   title="Refresh GPS Location"
                 >
-                  {isLocating ? <Loader2 className="w-2.5 h-2.5 animate-spin" /> : <Navigation className="w-2.5 h-2.5" />}
+                  {isLocating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />}
                   <span>GPS</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditingLocation(true)}
-                  className="px-2 py-1 rounded-lg bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#2a2d3e] text-[10px] font-semibold text-slate-600 dark:text-slate-300 hover:text-white flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#2a2d3e] text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer whitespace-nowrap"
                 >
-                  <Edit2 className="w-2.5 h-2.5" />
+                  <Edit2 className="w-3 h-3" />
                   <span>Change City</span>
                 </button>
               </div>
@@ -417,7 +510,7 @@ export const SalahTracker: React.FC = () => {
           )}
 
           {locationError && (
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1.5 font-medium">
               {locationError}
             </p>
           )}
@@ -425,24 +518,24 @@ export const SalahTracker: React.FC = () => {
 
         {/* Compact Metrics Strip */}
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold font-mono text-slate-900 dark:text-white">
+          <div className="flex items-baseline gap-2.5">
+            <span className="text-2xl sm:text-3xl font-extrabold font-mono tabular-nums text-slate-900 dark:text-white">
               {completedCount}
               <span className="text-base font-sans text-slate-400 font-normal"> / 5</span>
             </span>
             {completedCount === 5 ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                <Sparkles className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <Sparkles className="w-3.5 h-3.5" />
                 <span>Masha&apos;Allah 5/5</span>
               </span>
             ) : (
-              <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                {5 - completedCount} left today
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {5 - completedCount} remaining
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-3.5 text-xs tabular-nums">
             <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
               <Flame className="w-3.5 h-3.5 fill-amber-500" />
               <span>{salahStreakDays}d Streak</span>
@@ -470,87 +563,112 @@ export const SalahTracker: React.FC = () => {
         </div>
       </section>
 
-      {/* Compact 5 Daily Prayer Cards: 2 Columns on Mobile + 1 Full-Width Last Card (2 + 2 + 1) */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-2.5 sm:gap-3 w-full">
+      {/* Responsive Premium Grid:
+          Mobile: 2 columns + full-width Isha (2 + 2 + 1)
+          PC (md+): 6-col bento grid -> Row 1: Fajr, Dhuhr, Asr (3 equal cols); Row 2: Maghrib, Isha (2 wide cols) — zero overlapping */}
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-3 w-full">
         {prayers.map((prayer, index) => {
           const isDone = record[prayer.key];
+          const isActiveNow = isWindowActive(prayer.key);
           const IconComponent = prayer.icon;
-          const exactTime = timings ? timings[prayer.key] : '';
-          const isLastCard = index === prayers.length - 1;
+          const timingWindow = timings ? timings[prayer.key] : null;
+          const startDisplay = timingWindow?.start || prayer.fallbackWindow.start;
+          const endDisplay = timingWindow?.end || prayer.fallbackWindow.end;
+          const gridSpanClass =
+            index < 3
+              ? 'col-span-1 md:col-span-2'
+              : index === 3
+              ? 'col-span-1 md:col-span-3'
+              : 'col-span-2 md:col-span-3';
 
           return (
-            <div
+            <button
+              type="button"
               key={prayer.key}
               onClick={() => toggleSalahPrayer(selectedSalahDate, prayer.key)}
-              className={`cursor-pointer group relative bg-white dark:bg-[#13141d] border rounded-2xl p-3 sm:p-3.5 transition-all duration-200 select-none shadow-xs hover:shadow-md flex flex-col justify-between active:scale-[0.98] ${
-                isLastCard ? 'col-span-2 lg:col-span-1' : ''
-              } ${
+              className={`${gridSpanClass} min-w-0 text-left cursor-pointer group relative bg-white dark:bg-[#13141d] border rounded-2xl p-3.5 sm:p-4 transition-all duration-200 select-none shadow-xs hover:shadow-md flex flex-col justify-between active:scale-[0.98] ${
                 isDone
-                  ? 'border-emerald-400/70 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20'
+                  ? 'border-emerald-500/60 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-950/20'
+                  : isActiveNow
+                  ? 'border-indigo-400/70 dark:border-indigo-500/60 bg-indigo-50/30 dark:bg-[#17192b]'
                   : 'border-slate-200 dark:border-[#232638] hover:border-slate-300 dark:hover:border-slate-600'
               }`}
-              style={{
-                borderTopWidth: '3px',
-                borderTopColor: isDone ? '#10B981' : prayer.color,
-              }}
             >
-              {/* Top Row: Compact Icon + Prayer Name & Time */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              {/* Top Row: Icon + Prayer Name & Arabic + Status */}
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className="w-7 h-7 rounded-xl flex items-center justify-center text-white shrink-0 shadow-2xs"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs"
                     style={{ backgroundColor: isDone ? '#10B981' : prayer.color }}
                   >
-                    <IconComponent className="w-3.5 h-3.5" />
+                    <IconComponent className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white leading-tight truncate">
-                      {prayer.name}
-                    </h3>
-                    <span className="text-[10px] font-medium text-slate-400 font-mono block leading-tight">
-                      {prayer.arabicName}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-tight truncate">
+                        {prayer.name}
+                      </h3>
+                      <span className="text-[11px] font-medium text-slate-400 font-mono leading-tight">
+                        {prayer.arabicName}
+                      </span>
+                    </div>
+                    {isActiveNow && !isDone && (
+                      <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block mt-0.5">
+                        Current Waqt
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Prayer Time Badge right beside name */}
-                <div className="text-right shrink-0">
-                  {exactTime ? (
-                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-[#1d1f2d] text-slate-700 dark:text-slate-200 font-mono text-[10px] font-bold border border-slate-200 dark:border-[#2b2e42]">
-                      <Clock className="w-2.5 h-2.5 text-emerald-500 hidden xs:inline" />
-                      {exactTime}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {prayer.fallbackTiming}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Compact Bottom Row: Status & Checkmark */}
-              <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-[#202333] flex items-center justify-between">
-                <span
-                  className={`text-[11px] font-bold transition-colors ${
-                    isDone
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
-                  }`}
-                >
-                  {isDone ? 'Prayed ✓' : 'Mark Done'}
-                </span>
-
                 <div
-                  className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all shrink-0 ${
                     isDone
                       ? 'bg-emerald-500 text-white shadow-2xs'
                       : 'border-2 border-slate-300 dark:border-slate-700 text-transparent group-hover:border-slate-400'
                   }`}
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
-            </div>
+
+              {/* Start & End Prayer Window Block */}
+              <div className="mt-3 p-2.5 rounded-xl bg-slate-50/90 dark:bg-[#191b28] border border-slate-200/80 dark:border-[#25283b] grid grid-cols-2 gap-2">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+                    Starts
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-mono font-bold tabular-nums text-slate-800 dark:text-slate-100 block truncate mt-0.5">
+                    {startDisplay}
+                  </span>
+                </div>
+                <div className="min-w-0 border-l border-slate-200 dark:border-[#292d42] pl-2.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
+                    Ends
+                  </span>
+                  <span className="text-xs sm:text-[13px] font-mono font-bold tabular-nums text-slate-700 dark:text-slate-300 block truncate mt-0.5">
+                    {endDisplay}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bottom Status Text */}
+              <div className="mt-2.5 flex items-center justify-between text-[11px]">
+                <span
+                  className={`font-bold transition-colors ${
+                    isDone
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'
+                  }`}
+                >
+                  {isDone ? 'Prayed ✓' : 'Tap to mark prayed'}
+                </span>
+                {location && (
+                  <span className="text-[10px] text-slate-400 truncate max-w-[110px] hidden sm:inline">
+                    {location.city}
+                  </span>
+                )}
+              </div>
+            </button>
           );
         })}
       </section>
@@ -558,7 +676,7 @@ export const SalahTracker: React.FC = () => {
       {/* Compact Optional Reflection Box */}
       <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-3.5 sm:p-4 shadow-xs">
         <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-          Daily Dhikr & Reflection (Optional)
+          Daily Dhikr &amp; Reflection (Optional)
         </label>
         <textarea
           rows={2}

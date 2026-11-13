@@ -6,18 +6,20 @@ import { Menu, Plus, Sun, Moon, Sparkles, Flame } from 'lucide-react';
 interface MobileAppHeaderProps {
   onOpenSidebar: () => void;
   onOpenAddTask: () => void;
+  containerWidthClass?: string;
 }
 
 export const MobileAppHeader: React.FC<MobileAppHeaderProps> = ({
   onOpenSidebar,
   onOpenAddTask,
+  containerWidthClass = 'max-w-2xl',
 }) => {
   const { user } = useAuth();
   const { syncStatus, theme, toggleTheme, streakDays } = useStudy();
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#0e0f17]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#212334] px-3.5 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] sm:px-6 transition-colors shadow-xs">
-      <div className="max-w-2xl mx-auto flex items-center justify-between gap-2.5">
+      <div className={`${containerWidthClass} mx-auto flex items-center justify-between gap-2.5`}>
         {/* Left: User Profile Avatar & Greeting with Streak */}
         <div
           onClick={onOpenSidebar}

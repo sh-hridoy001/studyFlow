@@ -42,7 +42,9 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
     tasks,
     folderStats,
     addSubjectToFolder,
-    deleteSubjectFromFolder,
+    addChapterToSubject,
+    toggleChapterCompleted,
+    deleteChapterFromSubject,
     addStudyTimeToTask,
     stopwatch,
     startFolderTimer,
@@ -56,6 +58,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
   const [workspaceSubject, setWorkspaceSubject] = useState<string | null>(null);
   const [newSubjectInput, setNewSubjectInput] = useState('');
   const [selectedTimerSubject, setSelectedTimerSubject] = useState<string>('');
+  const [chapterDraftBySubject, setChapterDraftBySubject] = useState<Record<string, string>>({});
 
   if (!folder) {
     return (
@@ -102,8 +105,15 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
     setNewSubjectInput('');
   };
 
+  const handleAddChapterInline = (e: React.FormEvent, subjectName: string) => {
+    e.preventDefault();
+    const draft = (chapterDraftBySubject[subjectName] || '').trim();
+    if (!draft) return;
+    addChapterToSubject(folder.id, subjectName, { title: draft });
+    setChapterDraftBySubject((prev) => ({ ...prev, [subjectName]: '' }));
+  };
+
   const handleQuickAddMinutes = (mins: number) => {
-    // Credit to first task of folder or create new task
     if (folderTasks.length > 0) {
       addStudyTimeToTask(folderTasks[0].id, mins);
     } else {
@@ -114,7 +124,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
   return (
     <div className="space-y-6 w-full animate-in fade-in duration-200">
       {/* 1. Mobile App-style Navigation Header */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-5 sm:p-6 shadow-xs">
         <div className="flex items-center justify-between gap-3 mb-4">
           <button
             type="button"
@@ -151,15 +161,8 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   {folder.name}
                 </h1>
-                <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded-md border"
-                  style={{
-                    color: folder.color,
-                    borderColor: `${folder.color}50`,
-                    backgroundColor: `${folder.color}15`,
-                  }}
-                >
-                  {folder.subjects.length} Subjects
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  · {folder.subjects.length} Subjects
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">
@@ -172,21 +175,21 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
           <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 shrink-0">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Today Studied</span>
-              <span className="text-lg font-mono font-black text-slate-900 dark:text-white">
+              <span className="text-lg font-mono tabular-nums font-black text-slate-900 dark:text-white">
                 {formatDuration(stats.actualMinutes)}
               </span>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Target</span>
-              <span className="text-lg font-mono font-semibold text-slate-500">
+              <span className="text-lg font-mono tabular-nums font-semibold text-slate-500">
                 {formatDuration(stats.targetMinutes)}
               </span>
             </div>
             <div className="w-px h-8 bg-slate-200 dark:bg-slate-700" />
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Progress</span>
-              <span className="text-lg font-mono font-black text-indigo-600 dark:text-indigo-400">
+              <span className="text-lg font-mono tabular-nums font-black text-indigo-600 dark:text-indigo-400">
                 {stats.percent}%
               </span>
             </div>
@@ -205,23 +208,21 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Folder Study Timer Section (প্রতিটি ফোল্ডারে টাইমার সিস্টেম) */}
-      <div className="bg-gradient-to-br from-indigo-900/20 via-slate-900/40 to-slate-900 border border-indigo-500/30 rounded-3xl p-5 sm:p-6 shadow-md">
+      {/* 2. Folder Study Timer Section */}
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#24273b] rounded-3xl p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0 ${
-                isTimerActiveForFolder && stopwatch.isRunning ? 'animate-pulse' : ''
-              }`}
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-xs shrink-0"
               style={{ backgroundColor: folder.color }}
             >
               <Timer className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 tracking-wider">
                 Built-in Study Timer
               </span>
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Study Timer for {folder.name}
               </h3>
             </div>
@@ -230,11 +231,11 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
           {/* Subject Selector for Timer */}
           {folder.subjects.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Subject:</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">Subject:</span>
               <select
                 value={selectedTimerSubject}
                 onChange={(e) => setSelectedTimerSubject(e.target.value)}
-                className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-slate-100 dark:bg-[#1a1d2b] border border-slate-200 dark:border-[#2b2f45] rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="">General {folder.name}</option>
                 {folder.subjects.map((s) => (
@@ -248,11 +249,11 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
         </div>
 
         {/* Timer Controls Row */}
-        <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-[#222538] flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             {isTimerActiveForFolder ? (
               <>
-                <div className="font-mono text-xl sm:text-2xl font-black text-indigo-400 tabular-nums px-3 py-1 bg-slate-950/80 border border-slate-700/60 rounded-xl shadow-inner">
+                <div className="font-mono text-xl sm:text-2xl font-black text-indigo-600 dark:text-indigo-400 tabular-nums px-3 py-1 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-700/60 rounded-xl shadow-inner">
                   {formattedStopwatch}
                 </div>
 
@@ -305,21 +306,21 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
             <button
               type="button"
               onClick={() => handleQuickAddMinutes(15)}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
             >
               +15m
             </button>
             <button
               type="button"
               onClick={() => handleQuickAddMinutes(30)}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
             >
               +30m
             </button>
             <button
               type="button"
               onClick={() => handleQuickAddMinutes(60)}
-              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+              className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold cursor-pointer transition-colors"
             >
               +1h
             </button>
@@ -327,40 +328,40 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
         </div>
       </div>
 
-      {/* 3. Sub-Folders / Subjects Workspaces */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+      {/* 3. Sub-Folders / Subjects & Inline Chapters with Complete Checkmarks */}
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-5 sm:p-6 shadow-xs">
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Subjects & Workspaces ({folder.subjects.length})
+              Subjects &amp; Chapters ({folder.subjects.length})
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Click any subject to open its chapters, theory notes, and formula sheet
+              Add chapters inside any subject and click the checkmark to mark each chapter complete
             </p>
           </div>
         </div>
 
         {/* Add Subject inline input */}
-        <form onSubmit={handleAddSubject} className="flex gap-2 mb-4">
+        <form onSubmit={handleAddSubject} className="flex gap-2 mb-5">
           <input
             type="text"
             value={newSubjectInput}
             onChange={(e) => setNewSubjectInput(e.target.value)}
             placeholder={`Add a new subject to ${folder.name}...`}
-            className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 bg-slate-50 dark:bg-[#191b27] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             type="submit"
             disabled={!newSubjectInput.trim()}
-            className="flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 text-xs cursor-pointer shadow-xs"
+            className="flex items-center gap-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 text-xs cursor-pointer shadow-xs whitespace-nowrap shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Subject</span>
           </button>
         </form>
 
-        {/* Grid of Subject Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        {/* Subject Cards with Inline Chapter List & Checkmark Completion */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {folder.subjects.length === 0 ? (
             <div className="col-span-full text-center py-8 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400">
               No subjects in this folder yet. Type above to add your first subject!
@@ -370,15 +371,20 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
               const sf = folder.subjectFolders?.find(
                 (item) => item.name.toLowerCase() === subjectName.toLowerCase()
               );
-              const chapterCount = sf?.chapters?.length || 0;
+              const chapters = sf?.chapters || [];
+              const completedChaptersCount = chapters.filter((ch) => ch.completed).length;
+              const chapterProgressPct =
+                chapters.length > 0 ? Math.round((completedChaptersCount / chapters.length) * 100) : 0;
+              const chapterDraft = chapterDraftBySubject[subjectName] || '';
 
               return (
                 <div
                   key={subjectName}
-                  className="group bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 hover:border-indigo-400 dark:hover:border-indigo-500 rounded-2xl p-4 transition-all shadow-2xs flex flex-col justify-between"
+                  className="bg-slate-50/70 dark:bg-[#181a26] border border-slate-200 dark:border-[#26293b] rounded-2xl p-4 transition-all shadow-2xs flex flex-col justify-between gap-3"
                 >
+                  {/* Subject Header & Chapter Progress */}
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span
                           className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -388,35 +394,140 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                           {subjectName}
                         </h4>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 shrink-0">
-                        {chapterCount} {chapterCount === 1 ? 'ch' : 'chs'}
+                      <span className="text-[11px] font-mono tabular-nums font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                        {completedChaptersCount}/{chapters.length} chs done
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mb-3">
-                      {sf?.description || 'Chapters, notes & revision points'}
-                    </p>
+                    {chapters.length > 0 && (
+                      <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-3">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${chapterProgressPct}%`,
+                            backgroundColor: chapterProgressPct === 100 ? '#10B981' : folder.color,
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Chapters List with Instant Complete Checkmark */}
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                      {chapters.length === 0 ? (
+                        <p className="text-[11px] text-slate-400 py-2">
+                          No chapters added yet. Add one below:
+                        </p>
+                      ) : (
+                        chapters.map((chap, idx) => (
+                          <div
+                            key={chap.id}
+                            className={`flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl border transition-colors ${
+                              chap.completed
+                                ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/50'
+                                : 'bg-white dark:bg-[#12131c] border-slate-200/90 dark:border-[#25283a]'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setWorkspaceSubject(subjectName)}
+                              className="min-w-0 flex-1 text-left flex items-center gap-2 cursor-pointer"
+                              title="Open notes & formulas for this chapter"
+                            >
+                              <span className="text-[10px] font-mono text-slate-400 shrink-0 tabular-nums">
+                                {String(idx + 1).padStart(2, '0')}.
+                              </span>
+                              <span
+                                className={`text-xs font-semibold truncate ${
+                                  chap.completed
+                                    ? 'line-through text-slate-400 dark:text-slate-500'
+                                    : 'text-slate-800 dark:text-slate-100'
+                                }`}
+                              >
+                                {chap.title}
+                              </span>
+                            </button>
+
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => toggleChapterCompleted(folder.id, subjectName, chap.id)}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                                  chap.completed
+                                    ? 'bg-emerald-500 text-white shadow-2xs hover:bg-emerald-600'
+                                    : 'bg-slate-100 dark:bg-[#1e2130] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#2e3248] hover:border-emerald-500 hover:text-emerald-600 dark:hover:text-emerald-400'
+                                }`}
+                                title={chap.completed ? 'Completed — click to undo' : 'Mark chapter complete'}
+                                aria-label={chap.completed ? `Unmark ${chap.title} complete` : `Mark ${chap.title} complete`}
+                              >
+                                <Check className={`w-3.5 h-3.5 ${chap.completed ? 'stroke-[3]' : ''}`} />
+                                <span>{chap.completed ? 'Done' : 'Complete'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => deleteChapterFromSubject(folder.id, subjectName, chap.id)}
+                                className="p-1 text-slate-400 hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                                title="Delete chapter"
+                                aria-label={`Delete ${chap.title}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setWorkspaceSubject(subjectName)}
-                      className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  {/* Inline Add Chapter Form right inside Subject Card */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200/80 dark:border-[#25283a]">
+                    <form
+                      onSubmit={(e) => handleAddChapterInline(e, subjectName)}
+                      className="flex items-center gap-1.5"
                     >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>Open Notes & Chs</span>
-                    </button>
+                      <input
+                        type="text"
+                        value={chapterDraft}
+                        onChange={(e) =>
+                          setChapterDraftBySubject((prev) => ({
+                            ...prev,
+                            [subjectName]: e.target.value,
+                          }))
+                        }
+                        placeholder="Add chapter name..."
+                        className="flex-1 min-w-0 bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2b2e42] rounded-lg px-2.5 py-1.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!chapterDraft.trim()}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0 whitespace-nowrap"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Add</span>
+                      </button>
+                    </form>
 
-                    <button
-                      type="button"
-                      onClick={() => startFolderTimer(folder.id, subjectName)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-[11px] transition-colors cursor-pointer"
-                      title="Start timer for this subject"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>Timer</span>
-                    </button>
+                    {/* Footer Actions */}
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setWorkspaceSubject(subjectName)}
+                        className="flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Notes &amp; Formulas</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => startFolderTimer(folder.id, subjectName)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-[11px] transition-colors cursor-pointer whitespace-nowrap"
+                        title="Start timer for this subject"
+                      >
+                        <Play className="w-3 h-3 fill-current" />
+                        <span>Start Timer</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

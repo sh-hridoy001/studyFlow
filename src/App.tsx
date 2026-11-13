@@ -95,12 +95,20 @@ function AppContent() {
     setActiveTab('folders');
   };
 
+  const mainWidthClass =
+    activeTab === 'history' || activeTab === 'salah'
+      ? 'max-w-2xl lg:max-w-5xl'
+      : activeTab === 'folders' || (activeTab === 'routine' && !!selectedFolderId)
+      ? 'max-w-2xl lg:max-w-4xl'
+      : 'max-w-2xl';
+
   return (
     <div className="min-h-screen bg-[#f5f7fb] dark:bg-[#0a0b10] text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-hidden font-sans">
       {/* Mobile App Top Header with user greeting, avatar, and sidebar drawer toggle */}
       <MobileAppHeader
         onOpenSidebar={() => setIsSidebarOpen(true)}
         onOpenAddTask={() => handleOpenAddTask()}
+        containerWidthClass={mainWidthClass}
       />
 
       {/* Offline Mode Indicator Banner */}
@@ -117,8 +125,8 @@ function AppContent() {
         </div>
       )}
 
-      {/* Mobile-Centric Main Container (Optimized for phones & tablet/desktop app view) */}
-      <main className="flex-1 w-full max-w-2xl mx-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden pb-20">
+      {/* Responsive App Container */}
+      <main className={`flex-1 w-full ${mainWidthClass} mx-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden pb-20`}>
         {activeTab === 'add-task' ? (
           <AddTaskScreen
             defaultFolderId={defaultFolder}
