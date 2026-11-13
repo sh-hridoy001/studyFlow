@@ -47,7 +47,7 @@ export const MobileBottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="sticky bottom-0 z-40 w-full bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#222434] pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-3 sm:px-6 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#222434] pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-3 sm:px-6 shadow-lg">
       <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;

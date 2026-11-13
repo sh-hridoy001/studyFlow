@@ -30,6 +30,7 @@ export interface FolderDefinition {
   icon?: string;
   subjects: string[]; // Dynamic sub-folders or subjects inside this folder
   subjectFolders?: SubjectFolder[]; // Enhanced sub-folders with chapters & notes
+  parentId?: string | null; // Optional parent folder ID for nested folders
 }
 
 export interface DailyTask {

@@ -62,7 +62,7 @@ interface StudyContextType {
 
   // Dynamic Folders & Subjects
   folders: FolderDefinition[];
-  addFolder: (folder: { name: string; subtitle?: string; color: string; subjects?: string[] }) => FolderDefinition;
+  addFolder: (folder: { name: string; subtitle?: string; color: string; subjects?: string[]; parentId?: string | null }) => FolderDefinition;
   updateFolder: (id: string, updates: Partial<FolderDefinition>) => void;
   deleteFolder: (id: string) => void;
   addSubjectToFolder: (folderId: string, subjectName: string) => void;
@@ -732,15 +732,17 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     subtitle?: string;
     color: string;
     subjects?: string[];
+    parentId?: string | null;
   }): FolderDefinition => {
-    const newId = `folder_${Date.now()}`;
+    const newId = `folder_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const newFolder: FolderDefinition = {
       id: newId,
       name: folderData.name.trim(),
-      subtitle: folderData.subtitle?.trim() || 'Custom study folder',
+      subtitle: folderData.subtitle?.trim() || (folderData.parentId ? 'Sub-folder' : 'Custom study folder'),
       color: folderData.color,
       badgeClass: 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700',
       subjects: folderData.subjects || [],
+      parentId: folderData.parentId ? String(folderData.parentId) : null,
     };
 
     setFolders((prev) => {
@@ -761,12 +763,29 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteFolder = (id: string) => {
+    const idsToDelete = new Set<string>([String(id)]);
     setFolders((prev) => {
-      const nextFolders = prev.filter((f) => String(f.id) !== String(id));
+      // Collect all descendant nested sub-folders recursively
+      let added = true;
+      while (added) {
+        added = false;
+        for (const f of prev) {
+          if (f.parentId && idsToDelete.has(String(f.parentId)) && !idsToDelete.has(String(f.id))) {
+            idsToDelete.add(String(f.id));
+            added = true;
+          }
+        }
+      }
+
+      const nextFolders = prev.filter((f) => !idsToDelete.has(String(f.id)));
       scheduleSaveToFirestore(nextFolders, tasks, dateRecords, salahRecords);
       return nextFolders;
     });
-    if (String(selectedFolderFilter) === String(id)) {
+
+    if (selectedFolderId && idsToDelete.has(String(selectedFolderId))) {
+      setSelectedFolderId(null);
+    }
+    if (selectedFolderFilter !== 'all' && idsToDelete.has(String(selectedFolderFilter))) {
       setSelectedFolderFilter('all');
     }
   };

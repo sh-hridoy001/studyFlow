@@ -147,15 +147,21 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            {folders.map((folder) => (
-              <AddTaskFolderCard
-                key={folder.id}
-                folder={folder}
-                isSelected={String(selectedFolderId) === String(folder.id)}
-                onSelect={() => setSelectedFolderId(folder.id)}
-                onHoldSettings={() => setSettingsFolderId(folder.id)}
-              />
-            ))}
+            {folders.map((folder) => {
+              const parent = folder.parentId
+                ? folders.find((f) => String(f.id) === String(folder.parentId))
+                : undefined;
+              return (
+                <AddTaskFolderCard
+                  key={folder.id}
+                  folder={folder}
+                  parentName={parent?.name}
+                  isSelected={String(selectedFolderId) === String(folder.id)}
+                  onSelect={() => setSelectedFolderId(folder.id)}
+                  onHoldSettings={() => setSettingsFolderId(folder.id)}
+                />
+              );
+            })}
 
             {/* Explicit Option: Outside Any Folder (Quick / General Task) */}
             <button
@@ -333,10 +339,11 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
 
 const AddTaskFolderCard: React.FC<{
   folder: FolderDefinition;
+  parentName?: string;
   isSelected: boolean;
   onSelect: () => void;
   onHoldSettings: () => void;
-}> = ({ folder, isSelected, onSelect, onHoldSettings }) => {
+}> = ({ folder, parentName, isSelected, onSelect, onHoldSettings }) => {
   const longPressHandlers = useLongPress({
     delay: 450,
     onLongPress: onHoldSettings,
@@ -368,6 +375,7 @@ const AddTaskFolderCard: React.FC<{
           {folder.name}
         </p>
         <p className="text-[10px] text-slate-400 truncate">
+          {parentName ? `${parentName} · ` : ''}
           {folder.subjects?.length || 0} subjects
         </p>
       </div>

@@ -150,11 +150,21 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
       selectedSessionTarget?.subjectName ||
       `${activeFolder.name} Study Session`;
 
-  const [expandedPickerFolderId, setExpandedPickerFolderId] = useState<string | null>(null);
+  const [expandedPickerFolders, setExpandedPickerFolders] = useState<Record<string, boolean>>({});
 
   const openSubjectPicker = () => {
     const initialFolder = activeFolderId || folders[0]?.id || null;
-    setExpandedPickerFolderId(initialFolder);
+    const nextExpanded: Record<string, boolean> = {};
+    if (initialFolder) {
+      nextExpanded[initialFolder] = true;
+      // Also expand ancestors if active folder is a nested sub-folder
+      let curr = folders.find((f) => String(f.id) === String(initialFolder));
+      while (curr?.parentId) {
+        nextExpanded[curr.parentId] = true;
+        curr = folders.find((f) => String(f.id) === String(curr?.parentId));
+      }
+    }
+    setExpandedPickerFolders(nextExpanded);
     setCustomSubjectFolderId(initialFolder || 'general');
     setCustomSubjectInput('');
     setIsSubjectPickerOpen(true);
@@ -489,179 +499,205 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             )}
           </div>
 
-          {/* Folder-by-Folder Structured List */}
+          {/* Folder-by-Folder Structured Tree List */}
           <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
-            {folders.map((folder) => {
-              const isExpanded = expandedPickerFolderId === folder.id;
-              const folderTasks = tasks.filter(
-                (t) => !t.completed && String(t.folderId) === String(folder.id)
+            {(() => {
+              const folderIds = new Set(folders.map((f) => String(f.id)));
+              const rootList = folders.filter(
+                (f) => !f.parentId || !folderIds.has(String(f.parentId))
               );
-              const subjects = folder.subjects || [];
 
-              return (
-                <div
-                  key={folder.id}
-                  className={`rounded-2xl border transition-all overflow-hidden ${
-                    isExpanded
-                      ? 'bg-slate-50/90 dark:bg-[#171925] border-slate-300 dark:border-[#32364d]'
-                      : 'bg-slate-50/50 dark:bg-[#161822] border-slate-200 dark:border-[#232638]'
-                  }`}
-                >
-                  {/* Folder Row Header */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      playUiClickSound();
-                      setExpandedPickerFolderId(isExpanded ? null : folder.id);
-                      setCustomSubjectFolderId(folder.id);
-                    }}
-                    className="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100/70 dark:hover:bg-[#1d2030] transition-colors"
+              const renderPickerFolderNode = (folder: typeof folders[number], depth = 0): React.ReactNode => {
+                const isExpanded = !!expandedPickerFolders[folder.id];
+                const childSubFolders = folders.filter(
+                  (f) => String(f.parentId || '') === String(folder.id)
+                );
+                const folderTasks = tasks.filter(
+                  (t) => !t.completed && String(t.folderId) === String(folder.id)
+                );
+                const subjects = folder.subjects || [];
+
+                return (
+                  <div
+                    key={folder.id}
+                    className={`rounded-2xl border transition-all overflow-hidden ${
+                      isExpanded
+                        ? 'bg-slate-50/90 dark:bg-[#171925] border-slate-300 dark:border-[#32364d]'
+                        : 'bg-slate-50/50 dark:bg-[#161822] border-slate-200 dark:border-[#232638]'
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs"
-                        style={{ backgroundColor: folder.color }}
-                      >
-                        <Folder className="w-3.5 h-3.5 fill-white/25" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                          {folder.name}
+                    {/* Folder Row Header */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playUiClickSound();
+                        setExpandedPickerFolders((prev) => ({
+                          ...prev,
+                          [folder.id]: !prev[folder.id],
+                        }));
+                        setCustomSubjectFolderId(folder.id);
+                      }}
+                      className="w-full flex items-center justify-between gap-2.5 px-3 py-2.5 text-left cursor-pointer hover:bg-slate-100/70 dark:hover:bg-[#1d2030] transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-7 h-7 rounded-lg flex items-center justify-center text-white shrink-0 shadow-2xs"
+                          style={{ backgroundColor: folder.color }}
+                        >
+                          <Folder className="w-3.5 h-3.5 fill-white/25" />
                         </div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}
-                          {folderTasks.length > 0 ? ` · ${folderTasks.length} pending` : ''}
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {folder.name}
+                          </div>
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                            {childSubFolders.length > 0 ? `${childSubFolders.length} folders · ` : ''}
+                            {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}
+                            {folderTasks.length > 0 ? ` · ${folderTasks.length} pending` : ''}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {isExpanded ? (
-                      <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-                    )}
-                  </button>
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                      )}
+                    </button>
 
-                  {/* Expanded Folder Contents: Subjects -> Folder Tasks -> Custom Subject */}
-                  {isExpanded && (
-                    <div className="px-3 pb-3 pt-1.5 border-t border-slate-200/70 dark:border-[#24273a] space-y-2.5">
-                      {/* Subjects inside this folder */}
-                      {subjects.length > 0 && (
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Subjects
-                          </span>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {subjects.map((subject) => (
+                    {/* Expanded Folder Contents: Sub-Folders -> Subjects -> Folder Tasks -> Custom Subject */}
+                    {isExpanded && (
+                      <div className="px-3 pb-3 pt-1.5 border-t border-slate-200/70 dark:border-[#24273a] space-y-2.5">
+                        {/* Nested Sub-Folders */}
+                        {childSubFolders.length > 0 && (
+                          <div className="space-y-1.5 pl-2 border-l-2 border-slate-200 dark:border-[#2c3047]">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Sub-Folders
+                            </span>
+                            {childSubFolders.map((child) => renderPickerFolderNode(child, depth + 1))}
+                          </div>
+                        )}
+
+                        {/* Subjects inside this folder */}
+                        {subjects.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Subjects
+                            </span>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {subjects.map((subject) => (
+                                <button
+                                  key={subject}
+                                  type="button"
+                                  onClick={() => {
+                                    playUiClickSound();
+                                    const matchingPending = folderTasks.find(
+                                      (t) => t.subjectName.toLowerCase() === subject.toLowerCase()
+                                    );
+                                    startTimerWithSelection({
+                                      taskId: matchingPending?.id,
+                                      folderId: folder.id,
+                                      subjectName: subject,
+                                    });
+                                  }}
+                                  className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-[#ff4757] transition-all cursor-pointer active:scale-95"
+                                >
+                                  <span className="truncate">{subject}</span>
+                                  <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757] shrink-0" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Active Tasks inside this folder */}
+                        {folderTasks.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                              Today&apos;s Tasks in {folder.name}
+                            </span>
+                            {folderTasks.map((task) => (
                               <button
-                                key={subject}
+                                key={task.id}
                                 type="button"
                                 onClick={() => {
                                   playUiClickSound();
-                                  const matchingPending = folderTasks.find(
-                                    (t) => t.subjectName.toLowerCase() === subject.toLowerCase()
-                                  );
                                   startTimerWithSelection({
-                                    taskId: matchingPending?.id,
+                                    taskId: task.id,
                                     folderId: folder.id,
-                                    subjectName: subject,
+                                    subjectName: task.subjectName,
                                   });
                                 }}
-                                className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-[#ff4757] transition-all cursor-pointer active:scale-95"
+                                className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs transition-all cursor-pointer"
                               >
-                                <span className="truncate">{subject}</span>
-                                <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757] shrink-0" />
+                                <span className="truncate font-semibold text-slate-800 dark:text-slate-200">
+                                  {task.topics ? `${task.subjectName} — ${task.topics}` : task.subjectName}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-400 shrink-0 flex items-center gap-1">
+                                  {task.actualMinutes}/{task.targetMinutes}m
+                                  <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757]" />
+                                </span>
                               </button>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        )}
 
-                      {/* Active Tasks inside this folder */}
-                      {folderTasks.length > 0 && (
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                            Today&apos;s Tasks in {folder.name}
-                          </span>
-                          {folderTasks.map((task) => (
+                        {/* Custom Subject input or General Study inside this folder */}
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!customSubjectInput.trim()) return;
+                            startTimerWithSelection({
+                              folderId: folder.id,
+                              subjectName: customSubjectInput.trim(),
+                            });
+                          }}
+                          className="flex items-center gap-1.5 pt-0.5"
+                        >
+                          <input
+                            type="text"
+                            value={customSubjectFolderId === folder.id ? customSubjectInput : ''}
+                            onFocus={() => setCustomSubjectFolderId(folder.id)}
+                            onChange={(e) => {
+                              setCustomSubjectFolderId(folder.id);
+                              setCustomSubjectInput(e.target.value);
+                            }}
+                            placeholder={`Other subject in ${folder.name}...`}
+                            className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+                          />
+                          {customSubjectFolderId === folder.id && customSubjectInput.trim() ? (
                             <button
-                              key={task.id}
+                              type="submit"
+                              className="px-2.5 py-1.5 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                            >
+                              <Play className="w-3 h-3 fill-white" />
+                              <span>Start</span>
+                            </button>
+                          ) : (
+                            <button
                               type="button"
                               onClick={() => {
                                 playUiClickSound();
                                 startTimerWithSelection({
-                                  taskId: task.id,
                                   folderId: folder.id,
-                                  subjectName: task.subjectName,
+                                  subjectName: `${folder.name} Study`,
                                 });
                               }}
-                              className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs transition-all cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
                             >
-                              <span className="truncate font-semibold text-slate-800 dark:text-slate-200">
-                                {task.topics ? `${task.subjectName} — ${task.topics}` : task.subjectName}
-                              </span>
-                              <span className="text-[10px] font-mono text-slate-400 shrink-0 flex items-center gap-1">
-                                {task.actualMinutes}/{task.targetMinutes}m
-                                <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757]" />
-                              </span>
+                              <Play className="w-3 h-3 fill-current" />
+                              <span>General</span>
                             </button>
-                          ))}
-                        </div>
-                      )}
+                          )}
+                        </form>
+                      </div>
+                    )}
+                  </div>
+                );
+              };
 
-                      {/* Custom Subject input or General Study inside this folder */}
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          if (!customSubjectInput.trim()) return;
-                          startTimerWithSelection({
-                            folderId: folder.id,
-                            subjectName: customSubjectInput.trim(),
-                          });
-                        }}
-                        className="flex items-center gap-1.5 pt-0.5"
-                      >
-                        <input
-                          type="text"
-                          value={customSubjectFolderId === folder.id ? customSubjectInput : ''}
-                          onFocus={() => setCustomSubjectFolderId(folder.id)}
-                          onChange={(e) => {
-                            setCustomSubjectFolderId(folder.id);
-                            setCustomSubjectInput(e.target.value);
-                          }}
-                          placeholder={`Other subject in ${folder.name}...`}
-                          className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
-                        />
-                        {customSubjectFolderId === folder.id && customSubjectInput.trim() ? (
-                          <button
-                            type="submit"
-                            className="px-2.5 py-1.5 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
-                          >
-                            <Play className="w-3 h-3 fill-white" />
-                            <span>Start</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              playUiClickSound();
-                              startTimerWithSelection({
-                                folderId: folder.id,
-                                subjectName: `${folder.name} Study`,
-                              });
-                            }}
-                            className="px-2.5 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
-                          >
-                            <Play className="w-3 h-3 fill-current" />
-                            <span>General</span>
-                          </button>
-                        )}
-                      </form>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+              return rootList.map((folder) => renderPickerFolderNode(folder, 0));
+            })()}
 
             {/* Outside Folder / Standalone Quick Study Option */}
             <div className="rounded-2xl border border-dashed border-slate-300 dark:border-[#2c3045] bg-slate-50/40 dark:bg-[#151722] p-2.5">

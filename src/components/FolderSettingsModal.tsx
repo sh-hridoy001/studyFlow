@@ -95,8 +95,18 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
     setNewSubject('');
   };
 
+  const folderIdSet = new Set(folders.map((f) => String(f.id)));
+  const rootFoldersCount = folders.filter((f) => !f.parentId || !folderIdSet.has(String(f.parentId))).length;
+  const parentFolder = folder.parentId
+    ? folders.find((f) => String(f.id) === String(folder.parentId))
+    : undefined;
+  const childFoldersCount = folders.filter(
+    (f) => String(f.parentId || '') === String(folder.id)
+  ).length;
+  const canDeleteFolder = !!parentFolder || rootFoldersCount > 1;
+
   const handleDeleteFolder = () => {
-    if (folders.length <= 1) return;
+    if (!canDeleteFolder) return;
     deleteFolder(folder.id);
     onClose();
   };
@@ -134,7 +144,9 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
               <h3 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-white truncate">
                 {folder.name}
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                {parentFolder ? `Inside ${parentFolder.name} · ` : ''}
+                {childFoldersCount > 0 ? `${childFoldersCount} sub-folders · ` : ''}
                 {folder.subjects?.length || 0} subjects · Today {formatDuration(stats.actualMinutes)}
               </p>
             </div>
@@ -312,7 +324,7 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
 
         {/* Delete Folder Danger Zone */}
         <div className="mt-4 pt-3 border-t border-slate-200 dark:border-[#222536]">
-          {folders.length <= 1 ? (
+          {!canDeleteFolder ? (
             <p className="text-[11px] text-slate-400 text-center">
               At least 1 study folder is required. Create another folder before deleting this one.
             </p>
@@ -321,7 +333,8 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
               <div className="flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
                 <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span>
-                  Delete folder <strong>{folder.name}</strong>? Past study logs remain safe, but the folder and its subject list will be removed.
+                  Delete folder <strong>{folder.name}</strong>
+                  {childFoldersCount > 0 ? ` and its ${childFoldersCount} sub-folder(s)` : ''}? Past study logs remain safe.
                 </span>
               </div>
               <div className="flex items-center gap-2">

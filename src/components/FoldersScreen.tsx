@@ -28,6 +28,7 @@ interface FoldersScreenProps {
 
 interface FolderGridCardProps {
   folder: FolderDefinition;
+  subFoldersCount: number;
   stats: { actualMinutes: number };
   isRenaming: boolean;
   renameValue: string;
@@ -45,6 +46,7 @@ interface FolderGridCardProps {
 
 const FolderGridCard: React.FC<FolderGridCardProps> = ({
   folder,
+  subFoldersCount,
   stats,
   isRenaming,
   renameValue,
@@ -194,7 +196,13 @@ const FolderGridCard: React.FC<FolderGridCardProps> = ({
 
       {/* Folder Footer Meta */}
       <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-[#1f2232] flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {subFoldersCount > 0 && (
+            <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
+              <Folder className="w-3 h-3 text-[#ff4757]" />
+              {subFoldersCount} {subFoldersCount === 1 ? 'folder' : 'folders'}
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <BookOpen className="w-3 h-3 text-slate-400" />
             {subjectCount} {subjectCount === 1 ? 'subject' : 'subjects'}
@@ -278,15 +286,18 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
     setRenamingFolderId(null);
   };
 
+  const folderIdSet = new Set(folders.map((f) => String(f.id)));
+  const rootFolders = folders.filter((f) => !f.parentId || !folderIdSet.has(String(f.parentId)));
+
   const handleRequestDelete = (e: React.MouseEvent, folderId: string) => {
     e.stopPropagation();
-    if (folders.length <= 1) return;
+    if (rootFolders.length <= 1) return;
     setConfirmDeleteId(folderId);
   };
 
   const handleConfirmDelete = (e: React.MouseEvent, folderId: string) => {
     e.stopPropagation();
-    if (folders.length <= 1) return;
+    if (rootFolders.length <= 1) return;
     deleteFolder(folderId);
     setConfirmDeleteId(null);
   };
@@ -402,25 +413,29 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
 
       {/* Genuine File-Manager Style Folder Grid (Long-press opens settings) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {folders.map((folder) => {
+        {rootFolders.map((folder) => {
           const stats = folderStats[folder.id] || {
             actualMinutes: 0,
             targetMinutes: 0,
             totalTasks: 0,
             completedTasks: 0,
           };
+          const subFoldersCount = folders.filter(
+            (f) => String(f.parentId || '') === String(folder.id)
+          ).length;
 
           return (
             <FolderGridCard
               key={folder.id}
               folder={folder}
+              subFoldersCount={subFoldersCount}
               stats={stats}
               isRenaming={renamingFolderId === folder.id}
               renameValue={renameValue}
               setRenameValue={setRenameValue}
               confirmDeleteId={confirmDeleteId}
               setConfirmDeleteId={setConfirmDeleteId}
-              canDelete={folders.length > 1}
+              canDelete={rootFolders.length > 1}
               onOpen={() => onOpenFolderDetail(folder.id)}
               onLongPressSettings={() => setSettingsFolderId(folder.id)}
               onStartRename={handleStartRename}

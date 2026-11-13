@@ -18,13 +18,19 @@ import {
   Edit3,
   Flame,
   Check,
+  Folder,
+  FolderPlus,
+  ChevronRight,
+  X,
 } from 'lucide-react';
+import { FOLDER_COLOR_PRESETS } from '../utils/folderConstants';
 import { SubjectWorkspaceModal } from './SubjectWorkspaceModal';
 import { FolderManageModal } from './FolderManageModal';
 
 interface FolderDetailViewProps {
   folderId: string;
   onBack: () => void;
+  onOpenFolder?: (folderId: string) => void;
   onOpenAddTask: (folderId?: string) => void;
   onEditTask: (task: any) => void;
   onViewTask: (task: any) => void;
@@ -33,6 +39,7 @@ interface FolderDetailViewProps {
 export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
   folderId,
   onBack,
+  onOpenFolder,
   onOpenAddTask,
   onEditTask,
   onViewTask,
@@ -41,6 +48,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
     folders,
     tasks,
     folderStats,
+    addFolder,
     addSubjectToFolder,
     addChapterToSubject,
     toggleChapterCompleted,
@@ -53,10 +61,21 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
   } = useStudy();
 
   const folder = folders.find((f) => String(f.id) === String(folderId));
+  const parentFolder = folder?.parentId
+    ? folders.find((f) => String(f.id) === String(folder.parentId))
+    : undefined;
+  const childFolders = folder
+    ? folders.filter((f) => String(f.parentId || '') === String(folder.id))
+    : [];
 
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [workspaceSubject, setWorkspaceSubject] = useState<string | null>(null);
   const [newSubjectInput, setNewSubjectInput] = useState('');
+  const [isAddingSubFolder, setIsAddingSubFolder] = useState(false);
+  const [newSubFolderName, setNewSubFolderName] = useState('');
+  const [newSubFolderColor, setNewSubFolderColor] = useState(
+    folder?.color || FOLDER_COLOR_PRESETS[0]?.color || '#4F46E5'
+  );
   const [selectedTimerSubject, setSelectedTimerSubject] = useState<string>('');
   const [chapterDraftBySubject, setChapterDraftBySubject] = useState<Record<string, string>>({});
 
@@ -121,19 +140,49 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
     }
   };
 
+  const handleAddSubFolder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubFolderName.trim()) return;
+    addFolder({
+      name: newSubFolderName.trim(),
+      color: newSubFolderColor,
+      subjects: [],
+      parentId: folder.id,
+    });
+    setNewSubFolderName('');
+    setIsAddingSubFolder(false);
+  };
+
   return (
     <div className="space-y-6 w-full animate-in fade-in duration-200">
       {/* 1. Mobile App-style Navigation Header */}
       <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-5 sm:p-6 shadow-xs">
         <div className="flex items-center justify-between gap-3 mb-4">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>All Folders</span>
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                if (parentFolder && onOpenFolder) {
+                  onOpenFolder(parentFolder.id);
+                } else {
+                  onBack();
+                }
+              }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>{parentFolder ? parentFolder.name : 'All Folders'}</span>
+            </button>
+            {parentFolder && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+              >
+                / Root
+              </button>
+            )}
+          </div>
 
           <div className="flex items-center gap-2">
             <button
@@ -161,6 +210,11 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   {folder.name}
                 </h1>
+                {childFolders.length > 0 && (
+                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    · {childFolders.length} Sub-Folders
+                  </span>
+                )}
                 <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                   · {folder.subjects.length} Subjects
                 </span>
@@ -326,6 +380,119 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 2.5 Nested Sub-Folders inside this Folder */}
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-5 sm:p-6 shadow-xs space-y-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Folder className="w-4 h-4 text-[#ff4757]" />
+              <span>Sub-Folders ({childFolders.length})</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Organize modules or nested folders inside {folder.name}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setNewSubFolderColor(folder.color || '#4F46E5');
+              setIsAddingSubFolder((prev) => !prev);
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+              isAddingSubFolder
+                ? 'bg-slate-200 dark:bg-[#232638] text-slate-700 dark:text-slate-200'
+                : 'bg-[#ff4757] hover:bg-[#ff3344] text-white shadow-2xs'
+            }`}
+          >
+            {isAddingSubFolder ? <X className="w-3.5 h-3.5" /> : <FolderPlus className="w-3.5 h-3.5" />}
+            <span>{isAddingSubFolder ? 'Cancel' : 'New Sub-Folder'}</span>
+          </button>
+        </div>
+
+        {isAddingSubFolder && (
+          <form
+            onSubmit={handleAddSubFolder}
+            className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#181a26] border border-dashed border-[#ff4757]/50 space-y-2.5 animate-in fade-in duration-150"
+          >
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                required
+                autoFocus
+                value={newSubFolderName}
+                onChange={(e) => setNewSubFolderName(e.target.value)}
+                placeholder={`Sub-folder name inside ${folder.name}...`}
+                className="flex-1 bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ff4757]"
+              />
+              <button
+                type="submit"
+                disabled={!newSubFolderName.trim()}
+                className="px-4 py-2 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] disabled:opacity-50 text-white text-xs font-bold cursor-pointer shrink-0"
+              >
+                Create Sub-Folder
+              </button>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 mr-1">Color:</span>
+              {FOLDER_COLOR_PRESETS.map((preset) => (
+                <button
+                  key={preset.color}
+                  type="button"
+                  onClick={() => setNewSubFolderColor(preset.color)}
+                  className={`w-5 h-5 rounded-md flex items-center justify-center text-white cursor-pointer ${
+                    newSubFolderColor === preset.color
+                      ? 'scale-110 ring-2 ring-offset-1 ring-slate-900 dark:ring-white'
+                      : 'opacity-80 hover:opacity-100'
+                  }`}
+                  style={{ backgroundColor: preset.color }}
+                  title={preset.name}
+                >
+                  {newSubFolderColor === preset.color && <Check className="w-3 h-3" />}
+                </button>
+              ))}
+            </div>
+          </form>
+        )}
+
+        {childFolders.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {childFolders.map((sub) => {
+              const nestedCount = folders.filter(
+                (f) => String(f.parentId || '') === String(sub.id)
+              ).length;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => onOpenFolder?.(sub.id)}
+                  className="flex items-center justify-between gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-[#181a26] hover:bg-slate-100 dark:hover:bg-[#1f2233] border border-slate-200 dark:border-[#26293b] text-left transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 shadow-2xs"
+                      style={{ backgroundColor: sub.color }}
+                    >
+                      <Folder className="w-4 h-4 fill-white/20" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ff4757] transition-colors">
+                        {sub.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                        {nestedCount > 0 ? `${nestedCount} folders · ` : ''}
+                        {sub.subjects?.length || 0} subjects
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#ff4757] shrink-0" />
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 3. Sub-Folders / Subjects & Inline Chapters with Complete Checkmarks */}

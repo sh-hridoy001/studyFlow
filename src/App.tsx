@@ -103,7 +103,7 @@ function AppContent() {
       : 'max-w-2xl';
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] dark:bg-[#0a0b10] text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-hidden font-sans">
+    <div className="min-h-screen bg-[#f5f7fb] dark:bg-[#0a0b10] text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-[#ff4757] selection:text-white w-full overflow-x-clip font-sans">
       {/* Mobile App Top Header with user greeting, avatar, and sidebar drawer toggle */}
       <MobileAppHeader
         onOpenSidebar={() => setIsSidebarOpen(true)}
@@ -126,7 +126,7 @@ function AppContent() {
       )}
 
       {/* Responsive App Container */}
-      <main className={`flex-1 w-full ${mainWidthClass} mx-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden pb-20`}>
+      <main className={`flex-1 w-full ${mainWidthClass} mx-auto px-3.5 sm:px-6 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-clip pb-24`}>
         {activeTab === 'add-task' ? (
           <AddTaskScreen
             defaultFolderId={defaultFolder}
@@ -140,6 +140,7 @@ function AppContent() {
             <FolderDetailView
               folderId={selectedFolderId}
               onBack={() => setSelectedFolderId(null)}
+              onOpenFolder={(targetFolderId) => setSelectedFolderId(targetFolderId)}
               onOpenAddTask={handleOpenAddTask}
               onEditTask={handleEditTask}
               onViewTask={handleViewTask}
