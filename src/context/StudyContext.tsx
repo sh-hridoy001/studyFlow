@@ -11,6 +11,9 @@ import {
   ChapterNote,
   SubjectFolder,
   MilestoneGoal,
+  SurfaceThemeId,
+  GlassEffectLevel,
+  CustomThemePreset,
 } from '../types';
 import { DEFAULT_DYNAMIC_FOLDERS, ensureFolderSubjectStructure } from '../utils/folderConstants';
 import {
@@ -24,6 +27,7 @@ import {
 } from '../utils/dateUtils';
 import confetti from 'canvas-confetti';
 import { useAuth } from './AuthContext';
+import { useAppControl } from './AppControlContext';
 import {
   saveUserStudyDataToFirestore,
   subscribeToUserStudyData,
@@ -174,14 +178,30 @@ interface StudyContextType {
   deleteMilestone: (id: string) => void;
   toggleMilestoneCompleted: (id: string) => void;
 
-  // Theme
+  // Theme & Custom Appearance Studio
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  surfaceTheme: SurfaceThemeId;
+  setSurfaceTheme: (surface: SurfaceThemeId) => void;
+  accentColor: string;
+  setAccentColor: (hex: string) => void;
+  glassMode: GlassEffectLevel;
+  setGlassMode: (mode: GlassEffectLevel) => void;
+  auroraRing: boolean;
+  setAuroraRing: (enabled: boolean) => void;
+  customThemes: CustomThemePreset[];
+  addCustomTheme: (preset: { name: string; accent: string; surface: SurfaceThemeId }) => CustomThemePreset;
+  deleteCustomTheme: (id: string) => void;
 }
 
 const StudyContext = createContext<StudyContextType | null>(null);
 
 const STORAGE_THEME_KEY = 'studytracker_theme_v2';
+const STORAGE_SURFACE_KEY = 'focustrack_surface_theme_v1';
+const STORAGE_ACCENT_KEY = 'focustrack_accent_color_v1';
+const STORAGE_GLASS_KEY = 'focustrack_glass_mode_v1';
+const STORAGE_AURORA_RING_KEY = 'focustrack_aurora_ring_v1';
+const STORAGE_CUSTOM_THEMES_KEY = 'focustrack_custom_themes_v1';
 const GUEST_DATA_KEY = 'focustrack_guest_data_';
 const CACHE_KEY_PREFIX = 'focustrack_data_cache_';
 const ACTIVE_TAB_KEY = 'focustrack_active_tab_v2';
@@ -250,27 +270,164 @@ function getInitialCachedPayload() {
 
 export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const { isPro } = useAppControl();
 
-  // Theme state
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+  // Surface Theme & Glassmorphism & Aurora Ring
+  const [surfaceTheme, setSurfaceThemeState] = useState<SurfaceThemeId>(() => {
     if (typeof window === 'undefined') return 'dark';
-    const saved = localStorage.getItem(STORAGE_THEME_KEY);
-    if (saved === 'light' || saved === 'dark') return saved;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const savedSurface = localStorage.getItem(STORAGE_SURFACE_KEY);
+    if (
+      savedSurface === 'soft-light' ||
+      savedSurface === 'warm-paper' ||
+      savedSurface === 'dark' ||
+      savedSurface === 'amoled' ||
+      savedSurface === 'midnight-glass'
+    ) {
+      return savedSurface;
+    }
+    const savedTheme = localStorage.getItem(STORAGE_THEME_KEY);
+    if (savedTheme === 'light') return 'soft-light';
+    if (savedTheme === 'dark') return 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'soft-light';
   });
+
+  const [accentColor, setAccentColorState] = useState<string>(() => {
+    if (typeof window === 'undefined') return '#ff4757';
+    const saved = localStorage.getItem(STORAGE_ACCENT_KEY);
+    return saved && /^#[0-9a-fA-F]{6}$/.test(saved) ? saved : '#ff4757';
+  });
+
+  const [glassMode, setGlassModeState] = useState<GlassEffectLevel>(() => {
+    if (typeof window === 'undefined') return 'off';
+    const saved = localStorage.getItem(STORAGE_GLASS_KEY);
+    if (saved === 'off' || saved === 'subtle' || saved === 'strong') {
+      return saved;
+    }
+    return 'off';
+  });
+
+  const [auroraRing, setAuroraRingState] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(STORAGE_AURORA_RING_KEY) === 'true';
+  });
+
+  const [customThemes, setCustomThemes] = useState<CustomThemePreset[]>(() => {
+    return safeStorageGet<CustomThemePreset[]>(STORAGE_CUSTOM_THEMES_KEY, []);
+  });
+
+  // Free Tier (after 30-day trial) uses standard Soft Light / Midnight Dark with default #ff4757 accent & flat cards
+  const effectiveSurfaceTheme: SurfaceThemeId = isPro
+    ? surfaceTheme
+    : surfaceTheme === 'warm-paper'
+    ? 'soft-light'
+    : surfaceTheme === 'amoled' || surfaceTheme === 'midnight-glass'
+    ? 'dark'
+    : surfaceTheme;
+
+  const effectiveAccentColor = isPro ? accentColor : '#ff4757';
+  const effectiveGlassMode: GlassEffectLevel = isPro ? glassMode : 'off';
+  const effectiveAuroraRing: boolean = isPro ? auroraRing : false;
+
+  const theme: 'light' | 'dark' =
+    effectiveSurfaceTheme === 'dark' ||
+    effectiveSurfaceTheme === 'amoled' ||
+    effectiveSurfaceTheme === 'midnight-glass'
+      ? 'dark'
+      : 'light';
 
   useEffect(() => {
     const root = document.documentElement;
+    root.dataset.surface = effectiveSurfaceTheme;
+    root.dataset.glass = effectiveGlassMode;
     if (theme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
+    localStorage.setItem(STORAGE_SURFACE_KEY, surfaceTheme);
     localStorage.setItem(STORAGE_THEME_KEY, theme);
-  }, [theme]);
+    localStorage.setItem(STORAGE_GLASS_KEY, glassMode);
+    localStorage.setItem(STORAGE_AURORA_RING_KEY, String(auroraRing));
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      const bgMap: Record<SurfaceThemeId, string> = {
+        'soft-light': '#e7ecf4',
+        'warm-paper': '#ebe5d5',
+        dark: '#0a0b10',
+        amoled: '#000000',
+        'midnight-glass': '#041336',
+      };
+      metaTheme.setAttribute('content', bgMap[effectiveSurfaceTheme]);
+    }
+  }, [effectiveSurfaceTheme, effectiveGlassMode, surfaceTheme, glassMode, auroraRing, theme]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--app-accent', effectiveAccentColor);
+    root.style.setProperty(
+      '--app-accent-soft',
+      `color-mix(in srgb, ${effectiveAccentColor} 14%, transparent)`
+    );
+    root.style.setProperty(
+      '--app-accent-hover',
+      `color-mix(in srgb, ${effectiveAccentColor} 88%, #000000)`
+    );
+    localStorage.setItem(STORAGE_ACCENT_KEY, accentColor);
+  }, [effectiveAccentColor, accentColor]);
+
+  const setSurfaceTheme = (surface: SurfaceThemeId) => {
+    setSurfaceThemeState(surface);
+  };
+
+  const setAccentColor = (hex: string) => {
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      setAccentColorState(hex);
+    }
+  };
+
+  const setGlassMode = (next: GlassEffectLevel) => {
+    setGlassModeState(next);
+  };
+
+  const setAuroraRing = (enabled: boolean) => {
+    setAuroraRingState(enabled);
+  };
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setSurfaceThemeState((prev) =>
+      prev === 'dark' || prev === 'amoled' || prev === 'midnight-glass' ? 'soft-light' : 'dark'
+    );
+  };
+
+  const addCustomTheme = (preset: {
+    name: string;
+    accent: string;
+    surface: SurfaceThemeId;
+  }): CustomThemePreset => {
+    const created: CustomThemePreset = {
+      id: `custom_${Date.now()}`,
+      name: preset.name.trim() || 'Custom Theme',
+      accent: /^#[0-9a-fA-F]{6}$/.test(preset.accent) ? preset.accent : '#ff4757',
+      surface: preset.surface,
+      isCustom: true,
+    };
+    setCustomThemes((prev) => {
+      const next = [...prev, created];
+      safeStorageSet(STORAGE_CUSTOM_THEMES_KEY, next);
+      return next;
+    });
+    setSurfaceThemeState(created.surface);
+    setAccentColorState(created.accent);
+    return created;
+  };
+
+  const deleteCustomTheme = (id: string) => {
+    setCustomThemes((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      safeStorageSet(STORAGE_CUSTOM_THEMES_KEY, next);
+      return next;
+    });
   };
 
   // Main active tab ('routine' | 'salah' | 'history') with persistence
@@ -1883,6 +2040,17 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleMilestoneCompleted,
         theme,
         toggleTheme,
+        surfaceTheme: effectiveSurfaceTheme,
+        setSurfaceTheme,
+        accentColor: effectiveAccentColor,
+        setAccentColor,
+        glassMode: effectiveGlassMode,
+        setGlassMode,
+        auroraRing: effectiveAuroraRing,
+        setAuroraRing,
+        customThemes,
+        addCustomTheme,
+        deleteCustomTheme,
       }}
     >
       {children}

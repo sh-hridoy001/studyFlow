@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStudy } from '../context/StudyContext';
+import { useAppControl } from '../context/AppControlContext';
 import { FolderDefinition } from '../types';
 import { FOLDER_COLOR_PRESETS } from '../utils/folderConstants';
 import { useLongPress } from '../hooks/useLongPress';
@@ -17,6 +18,7 @@ import {
   BookOpen,
   Clock,
   MoreVertical,
+  Crown,
 } from 'lucide-react';
 import { formatDuration } from '../utils/dateUtils';
 
@@ -116,7 +118,7 @@ const FolderGridCard: React.FC<FolderGridCardProps> = ({
               </form>
             ) : (
               <>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ff4757] transition-colors">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate group-hover:text-[var(--app-accent)] transition-colors">
                   {folder.name}
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -199,7 +201,7 @@ const FolderGridCard: React.FC<FolderGridCardProps> = ({
         <div className="flex items-center gap-2.5 flex-wrap">
           {subFoldersCount > 0 && (
             <span className="flex items-center gap-1 font-semibold text-slate-600 dark:text-slate-300">
-              <Folder className="w-3 h-3 text-[#ff4757]" />
+              <Folder className="w-3 h-3 text-[var(--app-accent)]" />
               {subFoldersCount} {subFoldersCount === 1 ? 'folder' : 'folders'}
             </span>
           )}
@@ -213,7 +215,7 @@ const FolderGridCard: React.FC<FolderGridCardProps> = ({
           </span>
         </div>
 
-        <span className="flex items-center gap-0.5 font-semibold text-slate-600 dark:text-slate-300 group-hover:text-[#ff4757]">
+        <span className="flex items-center gap-0.5 font-semibold text-slate-600 dark:text-slate-300 group-hover:text-[var(--app-accent)]">
           Open <ChevronRight className="w-3.5 h-3.5" />
         </span>
       </div>
@@ -233,6 +235,7 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
     updateFolder,
     deleteFolder,
   } = useStudy();
+  const { isPro, globalConfig, openUpgradeModal } = useAppControl();
 
   const [isCreating, setIsCreating] = useState<boolean>(autoFocusCreate);
   const [newName, setNewName] = useState('');
@@ -245,11 +248,15 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
   const [settingsFolderId, setSettingsFolderId] = useState<string | null>(null);
   const createInputRef = useRef<HTMLInputElement | null>(null);
 
+  const folderIdSet = new Set(folders.map((f) => String(f.id)));
+  const rootFolders = folders.filter((f) => !f.parentId || !folderIdSet.has(String(f.parentId)));
+  const isAtFreeFolderLimit = !isPro && rootFolders.length >= globalConfig.freeMaxRootFolders;
+
   useEffect(() => {
-    if (autoFocusCreate) {
+    if (autoFocusCreate && !isAtFreeFolderLimit) {
       setIsCreating(true);
     }
-  }, [autoFocusCreate]);
+  }, [autoFocusCreate, isAtFreeFolderLimit]);
 
   useEffect(() => {
     if (isCreating && createInputRef.current) {
@@ -257,8 +264,20 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
     }
   }, [isCreating]);
 
+  const handleToggleCreator = () => {
+    if (!isCreating && isAtFreeFolderLimit) {
+      openUpgradeModal('Unlimited Study Folders');
+      return;
+    }
+    setIsCreating((prev) => !prev);
+  };
+
   const handleCreateFolder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAtFreeFolderLimit) {
+      openUpgradeModal('Unlimited Study Folders');
+      return;
+    }
     if (!newName.trim()) return;
     addFolder({
       name: newName.trim(),
@@ -285,9 +304,6 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
     }
     setRenamingFolderId(null);
   };
-
-  const folderIdSet = new Set(folders.map((f) => String(f.id)));
-  const rootFolders = folders.filter((f) => !f.parentId || !folderIdSet.has(String(f.parentId)));
 
   const handleRequestDelete = (e: React.MouseEvent, folderId: string) => {
     e.stopPropagation();
@@ -319,21 +335,29 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
               Study Folders
             </h1>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Tap to open · Hold any folder for settings
+              {!isPro
+                ? `Free plan: ${rootFolders.length}/${globalConfig.freeMaxRootFolders} folders · Hold for settings`
+                : 'Tap to open · Hold any folder for settings'}
             </p>
           </div>
         </div>
 
         <button
-          onClick={() => setIsCreating(!isCreating)}
+          onClick={handleToggleCreator}
           className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
             isCreating
               ? 'bg-slate-200 dark:bg-[#232638] text-slate-700 dark:text-slate-200'
-              : 'bg-[#ff4757] hover:bg-[#ff3344] text-white shadow-sm'
+              : 'bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white shadow-sm'
           }`}
         >
-          {isCreating ? <X className="w-3.5 h-3.5" /> : <FolderPlus className="w-3.5 h-3.5" />}
-          <span>{isCreating ? 'Cancel' : 'New Folder'}</span>
+          {isCreating ? (
+            <X className="w-3.5 h-3.5" />
+          ) : isAtFreeFolderLimit ? (
+            <Crown className="w-3.5 h-3.5 text-amber-200" />
+          ) : (
+            <FolderPlus className="w-3.5 h-3.5" />
+          )}
+          <span>{isCreating ? 'Cancel' : isAtFreeFolderLimit ? 'Unlock More' : 'New Folder'}</span>
         </button>
       </div>
 
@@ -341,7 +365,7 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
       {isCreating && (
         <form
           onSubmit={handleCreateFolder}
-          className="bg-white dark:bg-[#151722] border-2 border-dashed border-[#ff4757]/50 rounded-2xl p-4 shadow-sm space-y-3 animate-in slide-in-from-top-2 duration-150"
+          className="bg-white dark:bg-[#151722] border-2 border-dashed border-[var(--app-accent)]/50 rounded-2xl p-4 shadow-sm space-y-3 animate-in slide-in-from-top-2 duration-150"
         >
           <div className="flex items-center gap-2">
             <div
@@ -368,14 +392,14 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Folder Name (e.g. Semester 5, Coding)"
-              className="w-full bg-slate-50 dark:bg-[#1c1e2c] border border-slate-200 dark:border-[#2c3045] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+              className="w-full bg-slate-50 dark:bg-[#1c1e2c] border border-slate-200 dark:border-[#2c3045] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
             />
             <input
               type="text"
               value={newSubtitle}
               onChange={(e) => setNewSubtitle(e.target.value)}
               placeholder="Subtitle (optional)"
-              className="w-full bg-slate-50 dark:bg-[#1c1e2c] border border-slate-200 dark:border-[#2c3045] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+              className="w-full bg-slate-50 dark:bg-[#1c1e2c] border border-slate-200 dark:border-[#2c3045] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
             />
           </div>
 
@@ -402,7 +426,7 @@ export const FoldersScreen: React.FC<FoldersScreenProps> = ({
             <button
               type="submit"
               disabled={!newName.trim()}
-              className="px-4 py-2 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+              className="px-4 py-2 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Folder</span>

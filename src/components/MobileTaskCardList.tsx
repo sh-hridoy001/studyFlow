@@ -56,7 +56,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">
               {homeMode ? "Today's Active Tasks" : "Today's Tasks"}
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ff4757]/15 text-[#ff4757] border border-[#ff4757]/30">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--app-accent-soft)] text-[var(--app-accent)] border border-[var(--app-accent)]/30">
               {completedTasksCount}/{totalTasksCount} Done
             </span>
           </div>
@@ -69,7 +69,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
 
         <button
           onClick={onOpenAddTask}
-          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[#ff4757]/10 hover:bg-[#ff4757]/20 border border-[#ff4757]/30 text-[#ff4757] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
+          className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-[var(--app-accent-soft)] hover:opacity-90 border border-[var(--app-accent)]/30 text-[var(--app-accent)] text-xs font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 shrink-0"
           title="Add new task"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -144,7 +144,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
                 key={task.id}
                 className={`group relative p-3 rounded-xl border transition-all ${
                   isStopwatchRunningThis
-                    ? 'bg-rose-50/50 dark:bg-[#1e1a24] border-[#ff4757]/50 shadow-xs ring-1 ring-[#ff4757]/30'
+                    ? 'bg-[var(--app-accent-soft)] border-[var(--app-accent)]/50 shadow-xs ring-1 ring-[var(--app-accent)]/30'
                     : task.completed
                     ? 'bg-slate-50 dark:bg-[#181924]/60 border-slate-200 dark:border-[#222434] opacity-75'
                     : 'bg-slate-50/70 dark:bg-[#191a25] hover:bg-slate-100/80 dark:hover:bg-[#1d1f2c] border-slate-200 dark:border-[#262838]'
@@ -214,7 +214,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
                               task.completed
                                 ? 'bg-emerald-500'
                                 : isStopwatchRunningThis
-                                ? 'bg-[#ff4757]'
+                                ? 'bg-[var(--app-accent)]'
                                 : 'bg-indigo-500'
                             }`}
                             style={{ width: `${progress}%` }}
@@ -239,7 +239,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
                       }}
                       className={`p-2 rounded-xl border transition-all cursor-pointer active:scale-95 ${
                         isStopwatchRunningThis
-                          ? 'bg-[#ff4757] border-[#ff4757] text-white shadow-sm animate-pulse'
+                          ? 'bg-[var(--app-accent)] border-[var(--app-accent)] text-white shadow-sm animate-pulse'
                           : 'bg-white dark:bg-[#222434] hover:bg-slate-100 dark:hover:bg-[#2b2d42] border-slate-200 dark:border-[#2e3146] text-slate-700 dark:text-slate-300'
                       }`}
                       title={isStopwatchRunningThis ? 'Pause Timer' : 'Start Focus Timer'}
@@ -277,7 +277,7 @@ export const MobileTaskCardList: React.FC<MobileTaskCardListProps> = ({
           </span>
           <button
             onClick={() => setActiveTab('tasks')}
-            className="text-slate-500 dark:text-slate-400 hover:text-[#ff4757] font-semibold cursor-pointer"
+            className="text-slate-500 dark:text-slate-400 hover:text-[var(--app-accent)] font-semibold cursor-pointer"
           >
             View in Tasks →
           </button>

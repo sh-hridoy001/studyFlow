@@ -3,12 +3,21 @@ import { useStudy } from '../context/StudyContext';
 import { ActiveMainTab } from '../types';
 import { Clock, CheckSquare, Moon, Target, Calendar } from 'lucide-react';
 
-export const MobileBottomNav: React.FC = () => {
-  const { activeTab, setActiveTab, todaySalahCount, setSelectedFolderId } = useStudy();
+interface MobileBottomNavProps {
+  onSelectRootTab?: (tab: ActiveMainTab) => void;
+}
+
+export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onSelectRootTab }) => {
+  const { activeTab, setActiveTab, todaySalahCount, setSelectedFolderId, accentColor } = useStudy();
+  const accent = accentColor || '#ff4757';
 
   const handleTabClick = (tab: ActiveMainTab) => {
-    setSelectedFolderId(null);
-    setActiveTab(tab);
+    if (onSelectRootTab) {
+      onSelectRootTab(tab);
+    } else {
+      setSelectedFolderId(null);
+      setActiveTab(tab);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -47,34 +56,44 @@ export const MobileBottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#222434] pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] px-3 sm:px-6 shadow-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 w-full bg-white/95 dark:bg-[#12131b]/95 backdrop-blur-md border-t border-slate-200 dark:border-[#222434] pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] px-3 sm:px-6 shadow-lg">
       <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
+              type="button"
               onClick={() => handleTabClick(item.id)}
-              className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all cursor-pointer select-none ${
+              className={`relative h-[52px] flex flex-col items-center justify-center rounded-xl transition-colors duration-150 cursor-pointer select-none ${
                 isActive
-                  ? 'text-[#ff4757] font-bold'
+                  ? ''
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
+              style={
+                isActive
+                  ? {
+                      color: accent,
+                      backgroundColor: `color-mix(in srgb, ${accent} 10%, transparent)`,
+                    }
+                  : undefined
+              }
             >
-              {isActive && (
-                <span className="absolute -top-1.5 w-6 h-1 rounded-full bg-[#ff4757]" />
-              )}
+              <span
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[3px] rounded-full transition-opacity duration-150 pointer-events-none"
+                style={{ backgroundColor: accent, opacity: isActive ? 1 : 0 }}
+              />
 
-              <div className="relative">
+              <div className="relative w-6 h-6 flex items-center justify-center shrink-0">
                 {item.icon}
                 {item.badge && (
-                  <span className="absolute -top-1.5 -right-2 px-1 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500 text-white dark:text-black leading-none">
+                  <span className="absolute -top-1 -right-2.5 px-1 py-0.2 rounded-full text-[9px] font-bold bg-emerald-500 text-white dark:text-black leading-none pointer-events-none">
                     {item.badge}
                   </span>
                 )}
               </div>
 
-              <span className="text-[10px] mt-0.5 font-semibold truncate max-w-full">
+              <span className="text-[11px] leading-tight mt-0.5 font-semibold truncate max-w-full">
                 {item.label}
               </span>
             </button>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useStudy } from '../context/StudyContext';
+import { useAppControl } from '../context/AppControlContext';
 import { formatDuration } from '../utils/dateUtils';
 import {
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
   FolderPlus,
   ChevronRight,
   X,
+  Lock,
 } from 'lucide-react';
 import { FOLDER_COLOR_PRESETS } from '../utils/folderConstants';
 import { SubjectWorkspaceModal } from './SubjectWorkspaceModal';
@@ -29,6 +31,7 @@ import { FolderManageModal } from './FolderManageModal';
 
 interface FolderDetailViewProps {
   folderId: string;
+  backLabel?: string;
   onBack: () => void;
   onOpenFolder?: (folderId: string) => void;
   onOpenAddTask: (folderId?: string) => void;
@@ -38,6 +41,7 @@ interface FolderDetailViewProps {
 
 export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
   folderId,
+  backLabel = 'Back',
   onBack,
   onOpenFolder,
   onOpenAddTask,
@@ -59,6 +63,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
     pauseStopwatch,
     stopAndSaveStopwatch,
   } = useStudy();
+  const { isPro, openUpgradeModal } = useAppControl();
 
   const folder = folders.find((f) => String(f.id) === String(folderId));
   const parentFolder = folder?.parentId
@@ -142,6 +147,11 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
 
   const handleAddSubFolder = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isPro) {
+      setIsAddingSubFolder(false);
+      openUpgradeModal('Nested Sub-Folders');
+      return;
+    }
     if (!newSubFolderName.trim()) return;
     addFolder({
       name: newSubFolderName.trim(),
@@ -171,7 +181,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>{parentFolder ? parentFolder.name : 'All Folders'}</span>
+              <span>{parentFolder ? parentFolder.name : backLabel}</span>
             </button>
             {parentFolder && (
               <button
@@ -387,7 +397,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Folder className="w-4 h-4 text-[#ff4757]" />
+              <Folder className="w-4 h-4 text-[var(--app-accent)]" />
               <span>Sub-Folders ({childFolders.length})</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -398,24 +408,34 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
           <button
             type="button"
             onClick={() => {
+              if (!isPro) {
+                openUpgradeModal('Nested Sub-Folders');
+                return;
+              }
               setNewSubFolderColor(folder.color || '#4F46E5');
               setIsAddingSubFolder((prev) => !prev);
             }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               isAddingSubFolder
                 ? 'bg-slate-200 dark:bg-[#232638] text-slate-700 dark:text-slate-200'
-                : 'bg-[#ff4757] hover:bg-[#ff3344] text-white shadow-2xs'
+                : 'bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white shadow-2xs'
             }`}
           >
-            {isAddingSubFolder ? <X className="w-3.5 h-3.5" /> : <FolderPlus className="w-3.5 h-3.5" />}
-            <span>{isAddingSubFolder ? 'Cancel' : 'New Sub-Folder'}</span>
+            {isAddingSubFolder ? (
+              <X className="w-3.5 h-3.5" />
+            ) : !isPro ? (
+              <Lock className="w-3.5 h-3.5" />
+            ) : (
+              <FolderPlus className="w-3.5 h-3.5" />
+            )}
+            <span>{isAddingSubFolder ? 'Cancel' : !isPro ? 'New Sub-Folder (Pro)' : 'New Sub-Folder'}</span>
           </button>
         </div>
 
         {isAddingSubFolder && (
           <form
             onSubmit={handleAddSubFolder}
-            className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#181a26] border border-dashed border-[#ff4757]/50 space-y-2.5 animate-in fade-in duration-150"
+            className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#181a26] border border-dashed border-[var(--app-accent)]/50 space-y-2.5 animate-in fade-in duration-150"
           >
             <div className="flex flex-col sm:flex-row gap-2">
               <input
@@ -425,12 +445,12 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                 value={newSubFolderName}
                 onChange={(e) => setNewSubFolderName(e.target.value)}
                 placeholder={`Sub-folder name inside ${folder.name}...`}
-                className="flex-1 bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#ff4757]"
+                className="flex-1 bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
               />
               <button
                 type="submit"
                 disabled={!newSubFolderName.trim()}
-                className="px-4 py-2 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] disabled:opacity-50 text-white text-xs font-bold cursor-pointer shrink-0"
+                className="px-4 py-2 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] disabled:opacity-50 text-white text-xs font-bold cursor-pointer shrink-0"
               >
                 Create Sub-Folder
               </button>
@@ -478,7 +498,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                       <Folder className="w-4 h-4 fill-white/20" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[#ff4757] transition-colors">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-[var(--app-accent)] transition-colors">
                         {sub.name}
                       </p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -487,7 +507,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#ff4757] shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[var(--app-accent)] shrink-0" />
                 </button>
               );
             })}
@@ -718,7 +738,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
           <button
             type="button"
             onClick={() => onOpenAddTask(folder.id)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff4757] hover:bg-[#ff3344] text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Task</span>
@@ -732,7 +752,7 @@ export const FolderDetailView: React.FC<FolderDetailViewProps> = ({
               <button
                 type="button"
                 onClick={() => onOpenAddTask(folder.id)}
-                className="text-[#ff4757] font-bold ml-1 hover:underline cursor-pointer"
+                className="text-[var(--app-accent)] font-bold ml-1 hover:underline cursor-pointer"
               >
                 + Plan a Task
               </button>

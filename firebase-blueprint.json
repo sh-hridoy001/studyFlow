@@ -2,7 +2,7 @@
   "entities": {
     "StudyData": {
       "title": "StudyData",
-      "description": "User daily study sessions, tasks across Academic, Admission, and English Learning, stopwatch state, and history records.",
+      "description": "User daily study sessions, tasks across folders, stopwatch state, Salah logs, milestones, and history records.",
       "type": "object",
       "properties": {
         "tasks": {
@@ -27,12 +27,97 @@
         }
       },
       "required": ["tasks", "dateRecords", "lastUpdated"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Global application configuration controlled by the admin including Pro paywall toggles, pricing, free limits, announcements, and maintenance mode.",
+      "type": "object",
+      "properties": {
+        "paywallEnabled": { "type": "boolean" },
+        "freeMaxRootFolders": { "type": "number" },
+        "freeMaxMilestones": { "type": "number" },
+        "monthlyPriceBdt": { "type": "number" },
+        "yearlyPriceBdt": { "type": "number" },
+        "lifetimePriceBdt": { "type": "number" },
+        "monthlyPriceUsd": { "type": "number" },
+        "yearlyPriceUsd": { "type": "number" },
+        "lifetimePriceUsd": { "type": "number" },
+        "bkashNumber": { "type": "string", "maxLength": 40 },
+        "nagadNumber": { "type": "string", "maxLength": 40 },
+        "rocketNumber": { "type": "string", "maxLength": 40 },
+        "paymentInstructions": { "type": "string", "maxLength": 500 },
+        "announcementEnabled": { "type": "boolean" },
+        "announcementText": { "type": "string", "maxLength": 300 },
+        "maintenanceMode": { "type": "boolean" },
+        "maintenanceMessage": { "type": "string", "maxLength": 300 },
+        "minAppVersion": { "type": "string", "maxLength": 30 },
+        "supportEmail": { "type": "string", "maxLength": 120 },
+        "adsEnabled": { "type": "boolean" },
+        "rewardedAdsEnabled": { "type": "boolean" },
+        "admobAppId": { "type": "string", "maxLength": 120 },
+        "admobBannerUnitId": { "type": "string", "maxLength": 120 },
+        "admobRewardedUnitId": { "type": "string", "maxLength": 120 },
+        "adsensePublisherId": { "type": "string", "maxLength": 120 },
+        "freeTrialDays": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["paywallEnabled", "freeMaxRootFolders", "freeMaxMilestones", "updatedAt"]
+    },
+    "UserAccess": {
+      "title": "UserAccess",
+      "description": "User subscription plan, Pro expiration status, and account status managed by admin.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 160 },
+        "displayName": { "type": "string", "maxLength": 120 },
+        "plan": { "type": "string", "enum": ["free", "pro_monthly", "pro_yearly", "pro_lifetime"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "proExpiresAt": { "type": "string", "maxLength": 64 },
+        "grantedBy": { "type": "string", "maxLength": 160 },
+        "lastActiveAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["uid", "plan", "status", "lastActiveAt", "createdAt"]
+    },
+    "PaymentRequest": {
+      "title": "PaymentRequest",
+      "description": "User-submitted payment verification requests (bKash, Nagad, Rocket, Play Billing) reviewed by the admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 160 },
+        "userName": { "type": "string", "maxLength": 120 },
+        "plan": { "type": "string", "enum": ["pro_monthly", "pro_yearly", "pro_lifetime"] },
+        "amountBdt": { "type": "number" },
+        "method": { "type": "string", "enum": ["bkash", "nagad", "rocket", "google_play", "card"] },
+        "senderNumber": { "type": "string", "maxLength": 64 },
+        "transactionId": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "adminNote": { "type": "string", "maxLength": 300 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "reviewedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "userId", "plan", "amountBdt", "method", "senderNumber", "transactionId", "status", "createdAt"]
     }
   },
   "firestore": {
     "/users/{userId}/studyData/{docId}": {
       "schema": "StudyData",
       "description": "Stores user study data including tasks and history records partitioned by authenticated user ID."
+    },
+    "/appConfig/{configId}": {
+      "schema": "AppConfig",
+      "description": "Global admin-controlled configuration document (appConfig/global)."
+    },
+    "/userAccess/{userId}": {
+      "schema": "UserAccess",
+      "description": "User subscription tier and account access status."
+    },
+    "/paymentRequests/{requestId}": {
+      "schema": "PaymentRequest",
+      "description": "Payment verification requests submitted by users for Pro upgrade."
     }
   }
 }

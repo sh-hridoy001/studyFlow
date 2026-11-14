@@ -435,7 +435,7 @@ export const SalahTracker: React.FC = () => {
           {isEditingLocation || !location ? (
             <form onSubmit={handleSaveManualCity} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <MapPin className="w-4 h-4 text-[#ff4757] shrink-0" />
+                <MapPin className="w-4 h-4 text-[var(--app-accent)] shrink-0" />
                 <input
                   type="text"
                   value={cityInput}

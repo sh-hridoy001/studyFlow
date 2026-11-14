@@ -9,12 +9,17 @@ interface ProminentAddTaskBannerProps {
 export const ProminentAddTaskBanner: React.FC<ProminentAddTaskBannerProps> = ({
   onOpenAddTask,
 }) => {
-  const { totalTasksCount, completedTasksCount, totalTargetMinutes } = useStudy();
+  const { totalTasksCount, completedTasksCount, totalTargetMinutes, accentColor } = useStudy();
+  const accent = accentColor || '#ff4757';
 
   return (
     <div
       onClick={onOpenAddTask}
-      className="relative w-full overflow-hidden rounded-2xl p-4 bg-gradient-to-r from-[#ff4757] via-[#f43f5e] to-[#e11d48] text-white shadow-md shadow-rose-950/25 hover:shadow-lg border border-white/15 transition-all duration-200 active:scale-[0.99] cursor-pointer group select-none"
+      className="relative w-full overflow-hidden rounded-2xl p-4 text-white shadow-md hover:shadow-lg border border-white/15 transition-all duration-200 active:scale-[0.99] cursor-pointer group select-none"
+      style={{
+        background: `linear-gradient(135deg, ${accent} 0%, ${accent}dd 100%)`,
+        boxShadow: `0 10px 24px -10px ${accent}66`,
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

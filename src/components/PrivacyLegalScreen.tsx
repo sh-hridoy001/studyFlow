@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { ADMIN_EMAIL, CURRENT_APP_VERSION } from '../context/AppControlContext';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -10,6 +11,8 @@ import {
   Lock,
   MapPin,
   Cloud,
+  CreditCard,
+  Mail,
 } from 'lucide-react';
 
 interface PrivacyLegalScreenProps {
@@ -58,7 +61,7 @@ export const PrivacyLegalScreen: React.FC<PrivacyLegalScreenProps> = ({
             Privacy, Terms &amp; Account
           </h1>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Data safety, permissions &amp; account deletion controls
+            Data safety, billing policy &amp; account deletion controls · v{CURRENT_APP_VERSION}
           </p>
         </div>
       </div>
@@ -67,12 +70,12 @@ export const PrivacyLegalScreen: React.FC<PrivacyLegalScreenProps> = ({
       <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs space-y-3.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
           <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-          <h2>Privacy Policy</h2>
+          <h2>Privacy Policy &amp; Data Safety</h2>
         </div>
 
         <div className="space-y-2.5">
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-[#181a25] border border-slate-200/80 dark:border-[#26293b]">
-            <Cloud className="w-4 h-4 text-[#ff4757] shrink-0 mt-0.5" />
+            <Cloud className="w-4 h-4 text-[var(--app-accent)] shrink-0 mt-0.5" />
             <div>
               <p className="font-bold text-slate-900 dark:text-white">Study &amp; Prayer Data</p>
               <p className="mt-0.5">
@@ -109,17 +112,45 @@ export const PrivacyLegalScreen: React.FC<PrivacyLegalScreenProps> = ({
         </div>
       </section>
 
-      {/* Terms of Service */}
+      {/* Subscription, Billing & Refund Policy (Required for Store Monetization) */}
+      <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs space-y-2.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+        <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+          <CreditCard className="w-4 h-4 text-[var(--app-accent)] shrink-0" />
+          <h2>Subscription, Billing &amp; Refund Policy</h2>
+        </div>
+        <p>
+          FocusTrack gives new users a 30-day full free trial, after which core study timer,
+          today&apos;s task tracking, and 5-time Salah tracking remain free. Optional FocusTrack Pro
+          plans (Monthly, Yearly, and Lifetime) unlock unlimited folders &amp; sub-folders, activity
+          heatmap, full study history, ambient soundscapes, OLED Zen Mode, custom themes, and Google
+          Calendar sync.
+        </p>
+        <p>
+          Purchases processed through Google Play Store or Apple App Store are governed by the
+          respective store&apos;s billing and refund terms. Direct local verification requests
+          (bKash/Nagad/Rocket) are tied permanently to your signed-in Google account and can be
+          restored anytime using the Restore Purchase option.
+        </p>
+      </section>
+
+      {/* Terms of Service & Developer Support */}
       <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs space-y-2.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
         <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
           <FileText className="w-4 h-4 text-indigo-500 shrink-0" />
-          <h2>Terms of Service</h2>
+          <h2>Terms of Service &amp; Support</h2>
         </div>
         <p>
           FocusTrack is a personal productivity, study planning, and daily Salah tracking tool.
           Prayer timings are provided for convenience and may vary slightly from local mosque
           timetables. You retain full ownership of all notes, chapters, and study logs you create.
         </p>
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-[#222536] text-[11px]">
+          <span className="flex items-center gap-1.5 text-slate-700 dark:text-slate-200 font-semibold">
+            <Mail className="w-3.5 h-3.5 text-[var(--app-accent)]" />
+            <span>Support: {ADMIN_EMAIL}</span>
+          </span>
+          <span className="font-mono text-slate-400">v{CURRENT_APP_VERSION}</span>
+        </div>
       </section>
 
       {/* In-App Account Deletion (Required for Google Play & Apple App Store) */}

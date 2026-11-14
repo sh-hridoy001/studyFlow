@@ -2,9 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Global Safety Net - Default deny all unknown collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Security Primitives
     function isSignedIn() {
       return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
     }
 
     function isOwner(userId) {
@@ -15,9 +24,139 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Default deny all unknown collections
-    match /{document=**} {
-      allow read, write: if false;
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'sazzadhossainhridoy961@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidAppConfig(data) {
+      return data.keys().hasAll(['paywallEnabled', 'freeMaxRootFolders', 'freeMaxMilestones', 'updatedAt'])
+        && data.keys().hasOnly([
+          'paywallEnabled',
+          'freeMaxRootFolders',
+          'freeMaxMilestones',
+          'monthlyPriceBdt',
+          'yearlyPriceBdt',
+          'lifetimePriceBdt',
+          'monthlyPriceUsd',
+          'yearlyPriceUsd',
+          'lifetimePriceUsd',
+          'bkashNumber',
+          'nagadNumber',
+          'rocketNumber',
+          'paymentInstructions',
+          'announcementEnabled',
+          'announcementText',
+          'maintenanceMode',
+          'maintenanceMessage',
+          'minAppVersion',
+          'supportEmail',
+          'adsEnabled',
+          'rewardedAdsEnabled',
+          'admobAppId',
+          'admobBannerUnitId',
+          'admobRewardedUnitId',
+          'adsensePublisherId',
+          'freeTrialDays',
+          'updatedAt'
+        ])
+        && data.paywallEnabled is bool
+        && data.freeMaxRootFolders is number && data.freeMaxRootFolders >= 1 && data.freeMaxRootFolders <= 100
+        && data.freeMaxMilestones is number && data.freeMaxMilestones >= 1 && data.freeMaxMilestones <= 100
+        && (!('monthlyPriceBdt' in data) || (data.monthlyPriceBdt is number && data.monthlyPriceBdt >= 0))
+        && (!('yearlyPriceBdt' in data) || (data.yearlyPriceBdt is number && data.yearlyPriceBdt >= 0))
+        && (!('lifetimePriceBdt' in data) || (data.lifetimePriceBdt is number && data.lifetimePriceBdt >= 0))
+        && (!('monthlyPriceUsd' in data) || (data.monthlyPriceUsd is number && data.monthlyPriceUsd >= 0))
+        && (!('yearlyPriceUsd' in data) || (data.yearlyPriceUsd is number && data.yearlyPriceUsd >= 0))
+        && (!('lifetimePriceUsd' in data) || (data.lifetimePriceUsd is number && data.lifetimePriceUsd >= 0))
+        && (!('bkashNumber' in data) || (data.bkashNumber is string && data.bkashNumber.size() <= 40))
+        && (!('nagadNumber' in data) || (data.nagadNumber is string && data.nagadNumber.size() <= 40))
+        && (!('rocketNumber' in data) || (data.rocketNumber is string && data.rocketNumber.size() <= 40))
+        && (!('paymentInstructions' in data) || (data.paymentInstructions is string && data.paymentInstructions.size() <= 500))
+        && (!('announcementEnabled' in data) || data.announcementEnabled is bool)
+        && (!('announcementText' in data) || (data.announcementText is string && data.announcementText.size() <= 300))
+        && (!('maintenanceMode' in data) || data.maintenanceMode is bool)
+        && (!('maintenanceMessage' in data) || (data.maintenanceMessage is string && data.maintenanceMessage.size() <= 300))
+        && (!('minAppVersion' in data) || (data.minAppVersion is string && data.minAppVersion.size() <= 30))
+        && (!('supportEmail' in data) || (data.supportEmail is string && data.supportEmail.size() <= 120))
+        && (!('adsEnabled' in data) || data.adsEnabled is bool)
+        && (!('rewardedAdsEnabled' in data) || data.rewardedAdsEnabled is bool)
+        && (!('admobAppId' in data) || (data.admobAppId is string && data.admobAppId.size() <= 120))
+        && (!('admobBannerUnitId' in data) || (data.admobBannerUnitId is string && data.admobBannerUnitId.size() <= 120))
+        && (!('admobRewardedUnitId' in data) || (data.admobRewardedUnitId is string && data.admobRewardedUnitId.size() <= 120))
+        && (!('adsensePublisherId' in data) || (data.adsensePublisherId is string && data.adsensePublisherId.size() <= 120))
+        && (!('freeTrialDays' in data) || (data.freeTrialDays is number && data.freeTrialDays >= 0 && data.freeTrialDays <= 365))
+        && data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidUserAccess(data) {
+      return data.keys().hasAll(['uid', 'plan', 'status', 'lastActiveAt', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid',
+          'email',
+          'displayName',
+          'plan',
+          'status',
+          'proExpiresAt',
+          'grantedBy',
+          'lastActiveAt',
+          'createdAt'
+        ])
+        && isValidId(data.uid)
+        && (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 160))
+        && (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() <= 120))
+        && data.plan in ['free', 'pro_monthly', 'pro_yearly', 'pro_lifetime']
+        && data.status in ['active', 'suspended']
+        && (!('proExpiresAt' in data) || data.proExpiresAt == null || (data.proExpiresAt is string && data.proExpiresAt.size() <= 64))
+        && (!('grantedBy' in data) || data.grantedBy == null || (data.grantedBy is string && data.grantedBy.size() <= 160))
+        && data.lastActiveAt is string && data.lastActiveAt.size() <= 64
+        && data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidPaymentRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'plan', 'amountBdt', 'method', 'senderNumber', 'transactionId', 'status', 'createdAt'])
+        && data.keys().hasOnly([
+          'id',
+          'userId',
+          'userEmail',
+          'userName',
+          'plan',
+          'amountBdt',
+          'method',
+          'senderNumber',
+          'transactionId',
+          'status',
+          'adminNote',
+          'createdAt',
+          'reviewedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && (!('userEmail' in data) || data.userEmail == null || (data.userEmail is string && data.userEmail.size() <= 160))
+        && (!('userName' in data) || data.userName == null || (data.userName is string && data.userName.size() <= 120))
+        && data.plan in ['pro_monthly', 'pro_yearly', 'pro_lifetime']
+        && data.amountBdt is number && data.amountBdt >= 0 && data.amountBdt <= 1000000
+        && data.method in ['bkash', 'nagad', 'rocket', 'google_play', 'card']
+        && data.senderNumber is string && data.senderNumber.size() >= 3 && data.senderNumber.size() <= 64
+        && data.transactionId is string && data.transactionId.size() >= 3 && data.transactionId.size() <= 120
+        && data.status in ['pending', 'approved', 'rejected']
+        && (!('adminNote' in data) || data.adminNote == null || (data.adminNote is string && data.adminNote.size() <= 300))
+        && data.createdAt is string && data.createdAt.size() <= 64
+        && (!('reviewedAt' in data) || data.reviewedAt == null || (data.reviewedAt is string && data.reviewedAt.size() <= 64));
     }
 
     // Connection test document
@@ -26,18 +165,80 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // User account root document
-    match /users/{userId} {
-      allow read, write: if isOwner(userId) && isValidId(userId);
+    // Admin registry
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (isOwner(adminUid) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create, update, delete: if isAdmin() && isValidId(adminUid);
+    }
 
-      // User study data subcollection (users/{userId}/studyData/{docId})
+    // Global App Config (Readable by app clients, writable ONLY by admin)
+    match /appConfig/{configId} {
+      allow get: if isValidId(configId);
+      allow list: if isBootstrappedAdmin();
+      allow create, update: if isAdmin() && isValidId(configId) && isValidAppConfig(incoming());
+      allow delete: if false;
+    }
+
+    // User Subscription & Access Control
+    match /userAccess/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isValidId(userId) && isValidUserAccess(incoming()) && (
+        isAdmin() || (
+          isOwner(userId) &&
+          isVerifiedUser() &&
+          incoming().uid == request.auth.uid &&
+          incoming().plan == 'free' &&
+          incoming().status == 'active' &&
+          !('proExpiresAt' in incoming()) &&
+          !('grantedBy' in incoming())
+        )
+      );
+      allow update: if isValidId(userId) && isValidUserAccess(incoming()) && (
+        isAdmin() || (
+          isOwner(userId) &&
+          isVerifiedUser() &&
+          incoming().uid == existing().uid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'lastActiveAt'])
+        )
+      );
+      allow delete: if isValidId(userId) && (isOwner(userId) || isAdmin());
+    }
+
+    // User Payment Verification Requests
+    match /paymentRequests/{requestId} {
+      allow get: if isValidId(requestId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (isBootstrappedAdmin() || existing().userId == request.auth.uid);
+      allow create: if isVerifiedUser()
+        && isValidId(requestId)
+        && isValidPaymentRequest(incoming())
+        && incoming().id == requestId
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'pending'
+        && !('adminNote' in incoming())
+        && !('reviewedAt' in incoming());
+      allow update: if isAdmin()
+        && isValidId(requestId)
+        && isValidPaymentRequest(incoming())
+        && incoming().id == existing().id
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNote', 'reviewedAt']);
+      allow delete: if isAdmin() && isValidId(requestId);
+    }
+
+    // User account root document & studyData subcollection
+    match /users/{userId} {
+      allow read, write: if isValidId(userId) && (isOwner(userId) || isAdmin());
+
       match /studyData/{docId} {
-        allow read, write: if isOwner(userId) && isValidId(userId) && isValidId(docId);
+        allow read, write: if isValidId(userId) && isValidId(docId) && (isOwner(userId) || isAdmin());
       }
 
-      // Any nested subcollections under user's account
       match /{allSubcollections=**} {
-        allow read, write: if isOwner(userId) && isValidId(userId);
+        allow read, write: if isValidId(userId) && (isOwner(userId) || isAdmin());
       }
     }
   }

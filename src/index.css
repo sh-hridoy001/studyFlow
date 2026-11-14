@@ -6,17 +6,198 @@
   :root {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color-scheme: light;
+    --app-accent: #ff4757;
+    --app-accent-soft: color-mix(in srgb, #ff4757 14%, transparent);
+    --app-accent-hover: color-mix(in srgb, var(--app-accent) 88%, #000000);
+    --app-bg: #e7ecf4;
+    --app-surface: #f7f9fc;
+    --app-surface-subtle: #edf1f7;
+    --app-border: #d3dce8;
   }
+
+  html[data-surface="warm-paper"] {
+    color-scheme: light;
+    --app-bg: #ebe5d5;
+    --app-surface: #faf6ec;
+    --app-surface-subtle: #f1eadb;
+    --app-border: #dcd2bd;
+  }
+
   html.dark {
     color-scheme: dark;
+    --app-bg: #0a0b10;
+    --app-surface: #13141d;
+    --app-surface-subtle: #191b27;
+    --app-border: #222434;
   }
+
+  html.dark[data-surface="amoled"] {
+    --app-bg: #000000;
+    --app-surface: #0b0c12;
+    --app-surface-subtle: #13151e;
+    --app-border: #1d202d;
+  }
+
+  html.dark[data-surface="midnight-glass"] {
+    color-scheme: dark;
+    --app-bg: #041336;
+    --app-surface: rgba(12, 34, 86, 0.56);
+    --app-surface-subtle: rgba(18, 46, 110, 0.48);
+    --app-border: rgba(148, 197, 255, 0.22);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
   body {
-    @apply bg-[#f5f7fb] text-slate-900 dark:bg-[#0a0b10] dark:text-slate-100 antialiased transition-colors duration-200;
+    overscroll-behavior-y: contain;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
   }
+
+  body {
+    background-color: var(--app-bg);
+    @apply text-slate-900 dark:text-slate-100 antialiased transition-colors duration-200;
+  }
+
+  html.dark[data-surface="midnight-glass"] body {
+    background-color: #041336;
+    background-image:
+      radial-gradient(circle at 14% 16%, rgba(34, 211, 238, 0.16) 0%, transparent 42%),
+      radial-gradient(circle at 86% 22%, color-mix(in srgb, var(--app-accent) 18%, transparent) 0%, transparent 44%),
+      radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.14) 0%, transparent 45%),
+      linear-gradient(155deg, #03102d 0%, #071e54 50%, #031236 100%);
+    background-attachment: fixed;
+  }
+}
+
+/* Soft Light & Warm Paper elevation tuning (eliminates harsh blinding white glare) */
+html:not(.dark)[data-surface="soft-light"] .bg-white,
+html:not(.dark)[data-surface="warm-paper"] .bg-white {
+  background-color: var(--app-surface);
+}
+
+html:not(.dark)[data-surface="soft-light"] .bg-\[\#f5f7fb\],
+html:not(.dark)[data-surface="warm-paper"] .bg-\[\#f5f7fb\] {
+  background-color: var(--app-bg);
+}
+
+html:not(.dark)[data-surface="soft-light"] .bg-slate-50,
+html:not(.dark)[data-surface="warm-paper"] .bg-slate-50 {
+  background-color: var(--app-surface-subtle);
+}
+
+html:not(.dark)[data-surface="soft-light"] .border-slate-200,
+html:not(.dark)[data-surface="warm-paper"] .border-slate-200 {
+  border-color: var(--app-border);
+}
+
+/* Pure AMOLED dark depth tuning */
+html.dark[data-surface="amoled"] .dark\:bg-\[\#0a0b10\] {
+  background-color: #000000;
+}
+
+html.dark[data-surface="amoled"] .dark\:bg-\[\#13141d\] {
+  background-color: #0b0c12;
+}
+
+html.dark[data-surface="amoled"] .dark\:border-\[\#222434\] {
+  border-color: #1c1f2b;
+}
+
+/* Midnight Sapphire Glass palette harmonization */
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#13141d\],
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#151722\] {
+  background-color: rgba(11, 32, 82, 0.68);
+}
+
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#181a26\],
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#191b27\],
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#171822\],
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#1b1c28\],
+html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#12131c\] {
+  background-color: rgba(18, 45, 108, 0.52);
+}
+
+html.dark[data-surface="midnight-glass"] header.sticky,
+html.dark[data-surface="midnight-glass"] nav.fixed {
+  background-color: rgba(6, 22, 60, 0.8);
+  border-color: rgba(148, 197, 255, 0.2);
+}
+
+html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#222434\],
+html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#232638\],
+html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#242636\],
+html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#26293b\],
+html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#2a2c3e\] {
+  border-color: rgba(148, 197, 255, 0.22);
+}
+
+/* User-Controlled Glassmorphism Look (Subtle & Strong Frosted Glass) */
+html[data-glass="subtle"] header.sticky,
+html[data-glass="subtle"] nav.fixed {
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+html[data-glass="subtle"] main .rounded-2xl.bg-white,
+html[data-glass="subtle"] main .rounded-3xl.bg-white,
+html[data-glass="subtle"] [data-glass-panel] {
+  background-color: color-mix(in srgb, var(--app-surface) 84%, transparent);
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 26px -14px rgba(2, 6, 23, 0.35);
+}
+
+html[data-glass="strong"] header.sticky,
+html[data-glass="strong"] nav.fixed {
+  background-color: color-mix(in srgb, var(--app-surface) 66%, transparent);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+}
+
+html[data-glass="strong"] main .rounded-2xl.bg-white,
+html[data-glass="strong"] main .rounded-3xl.bg-white,
+html[data-glass="strong"] [data-glass-panel] {
+  background-color: color-mix(in srgb, var(--app-surface) 58%, transparent);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    0 18px 38px -18px rgba(2, 10, 36, 0.55);
+}
+
+html:not(.dark)[data-glass="strong"] main .rounded-2xl.bg-white,
+html:not(.dark)[data-glass="strong"] main .rounded-3xl.bg-white,
+html:not(.dark)[data-glass="strong"] [data-glass-panel] {
+  background-color: color-mix(in srgb, var(--app-surface) 68%, transparent);
+  border-color: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 16px 32px -16px rgba(15, 23, 42, 0.16);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
 }
-

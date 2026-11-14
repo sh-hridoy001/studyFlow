@@ -1,17 +1,29 @@
 import React, { useState } from 'react';
 import { useStudy } from '../context/StudyContext';
+import { useAppControl } from '../context/AppControlContext';
 import { MilestoneGoal } from '../types';
-import { Target, Calendar, Clock, Plus, Trash2, CheckCircle2, ChevronRight, X, Sparkles, AlertCircle } from 'lucide-react';
+import { Target, Calendar, Clock, Plus, Trash2, CheckCircle2, ChevronRight, X, Sparkles, AlertCircle, Crown, Lock } from 'lucide-react';
 import { toDateKey } from '../utils/dateUtils';
 
 export const MilestoneCountdownWidget: React.FC = () => {
   const { milestones, addMilestone, deleteMilestone, toggleMilestoneCompleted } = useStudy();
+  const { isPro, globalConfig, openUpgradeModal } = useAppControl();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [targetDate, setTargetDate] = useState('');
   const [targetDailyHours, setTargetDailyHours] = useState(4);
   const [category, setCategory] = useState('Academic');
   const [notes, setNotes] = useState('');
+
+  const isAtFreeMilestoneLimit = !isPro && milestones.length >= globalConfig.freeMaxMilestones;
+
+  const handleOpenAddMilestone = () => {
+    if (isAtFreeMilestoneLimit) {
+      openUpgradeModal('Unlimited Exam Milestones');
+      return;
+    }
+    setIsModalOpen(true);
+  };
 
   const calculateDaysRemaining = (dateStr: string): number => {
     const target = new Date(dateStr);
@@ -24,6 +36,11 @@ export const MilestoneCountdownWidget: React.FC = () => {
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isAtFreeMilestoneLimit) {
+      setIsModalOpen(false);
+      openUpgradeModal('Unlimited Exam Milestones');
+      return;
+    }
     if (!title.trim() || !targetDate) return;
     addMilestone({
       title: title.trim(),
@@ -44,6 +61,35 @@ export const MilestoneCountdownWidget: React.FC = () => {
     return new Date(a.targetDate).getTime() - new Date(b.targetDate).getTime();
   });
 
+  if (!isPro) {
+    return (
+      <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-3xl p-6 sm:p-8 text-center space-y-4 shadow-xs w-full">
+        <div className="w-12 h-12 rounded-2xl bg-[var(--app-accent)] flex items-center justify-center text-white mx-auto shadow-md">
+          <Lock className="w-6 h-6" />
+        </div>
+        <div className="max-w-md mx-auto space-y-1.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--app-accent)] block">
+            Pro Feature · 30-Day Free Trial Ended
+          </span>
+          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
+            Exam Countdowns &amp; Milestones Locked
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Upgrade to FocusTrack Pro (or unlock 24h free access via a short ad) to track unlimited exam deadlines, countdowns, and daily goal targets.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => openUpgradeModal('Exam Countdowns & Milestones')}
+          className="px-5 py-2.5 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white text-xs font-extrabold inline-flex items-center gap-2 shadow-md cursor-pointer"
+        >
+          <Crown className="w-4 h-4" />
+          <span>Unlock Goals &amp; Milestones</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs w-full">
       {/* Top Header */}
@@ -54,8 +100,10 @@ export const MilestoneCountdownWidget: React.FC = () => {
               Target Deadlines
             </span>
             <span className="text-xs text-slate-300 dark:text-slate-700">·</span>
-            <span className="text-xs font-semibold text-[#ff4757]">
-              Exam & Goal Countdown
+            <span className="text-xs font-semibold text-[var(--app-accent)]">
+              {!isPro
+                ? `Free: ${milestones.length}/${globalConfig.freeMaxMilestones} goals`
+                : 'Exam & Goal Countdown'}
             </span>
           </div>
           <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white mt-0.5">
@@ -65,11 +113,15 @@ export const MilestoneCountdownWidget: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ff4757]/10 hover:bg-[#ff4757]/20 border border-[#ff4757]/30 text-[#ff4757] font-bold text-xs transition-colors cursor-pointer self-start sm:self-auto"
+          onClick={handleOpenAddMilestone}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--app-accent-soft)] hover:opacity-90 border border-[var(--app-accent)]/30 text-[var(--app-accent)] font-bold text-xs transition-all cursor-pointer self-start sm:self-auto"
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Exam / Goal</span>
+          {isAtFreeMilestoneLimit ? (
+            <Crown className="w-3.5 h-3.5 text-amber-500" />
+          ) : (
+            <Plus className="w-3.5 h-3.5" />
+          )}
+          <span>{isAtFreeMilestoneLimit ? 'Unlock More Goals' : 'Add Exam / Goal'}</span>
         </button>
       </div>
 
@@ -80,8 +132,8 @@ export const MilestoneCountdownWidget: React.FC = () => {
           <p className="text-xs text-slate-500 font-medium">No target exams or goals added yet.</p>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="mt-2 text-xs font-bold text-[#ff4757] hover:underline cursor-pointer"
+            onClick={handleOpenAddMilestone}
+            className="mt-2 text-xs font-bold text-[var(--app-accent)] hover:underline cursor-pointer"
           >
             + Add your first exam or goal target
           </button>
@@ -101,7 +153,7 @@ export const MilestoneCountdownWidget: React.FC = () => {
                     ? 'bg-slate-50 dark:bg-[#171925]/60 border-slate-200 dark:border-[#222434] opacity-75'
                     : daysLeft <= 7 && !isPassed
                     ? 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700/60 shadow-xs'
-                    : 'bg-slate-50/80 dark:bg-[#181a26] border-slate-200 dark:border-[#26293b] hover:border-[#ff4757]/50'
+                    : 'bg-slate-50/80 dark:bg-[#181a26] border-slate-200 dark:border-[#26293b] hover:border-[var(--app-accent)]/50'
                 }`}
               >
                 <div>

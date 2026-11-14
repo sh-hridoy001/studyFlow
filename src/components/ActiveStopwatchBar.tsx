@@ -77,7 +77,7 @@ export const ActiveStopwatchBar: React.FC = () => {
 
         {/* Right: Counter & Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
-          <div className="font-mono text-sm sm:text-base font-extrabold tracking-tight tabular-nums px-2.5 py-1 bg-slate-100 dark:bg-[#191b28] border border-slate-200 dark:border-[#2a2d40] rounded-xl text-[#ff4757]">
+          <div className="font-mono text-sm sm:text-base font-extrabold tracking-tight tabular-nums px-2.5 py-1 bg-slate-100 dark:bg-[#191b28] border border-slate-200 dark:border-[#2a2d40] rounded-xl text-[var(--app-accent)]">
             {formattedStopwatch}
           </div>
 
@@ -87,7 +87,7 @@ export const ActiveStopwatchBar: React.FC = () => {
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer ${
               stopwatch.isRunning
                 ? 'bg-amber-500 hover:bg-amber-600 text-slate-950'
-                : 'bg-[#ff4757] hover:bg-[#ff3344] text-white'
+                : 'bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white'
             }`}
             title={stopwatch.isRunning ? 'Pause Timer' : 'Resume Timer'}
           >

@@ -97,7 +97,18 @@ export interface DailySalahRecord {
   updatedAt?: string;
 }
 
-export type ActiveMainTab = 'routine' | 'tasks' | 'salah' | 'milestones' | 'history' | 'folders' | 'add-task' | 'legal';
+export type ActiveMainTab = 'routine' | 'tasks' | 'salah' | 'milestones' | 'history' | 'folders' | 'add-task' | 'legal' | 'admin' | 'guide';
+
+export type SurfaceThemeId = 'soft-light' | 'warm-paper' | 'dark' | 'amoled' | 'midnight-glass';
+export type GlassEffectLevel = 'off' | 'subtle' | 'strong';
+
+export interface CustomThemePreset {
+  id: string;
+  name: string;
+  accent: string;
+  surface: SurfaceThemeId;
+  isCustom?: boolean;
+}
 
 // Upcoming Exam & Goal Countdown Targets
 export interface MilestoneGoal {
@@ -110,3 +121,65 @@ export interface MilestoneGoal {
   notes?: string;
   createdAt?: string;
 }
+
+export type SubscriptionPlan = 'free' | 'pro_monthly' | 'pro_yearly' | 'pro_lifetime';
+export type PaymentMethod = 'bkash' | 'nagad' | 'rocket' | 'google_play' | 'card';
+
+export interface AppGlobalConfig {
+  paywallEnabled: boolean;
+  freeMaxRootFolders: number;
+  freeMaxMilestones: number;
+  monthlyPriceBdt: number;
+  yearlyPriceBdt: number;
+  lifetimePriceBdt: number;
+  monthlyPriceUsd: number;
+  yearlyPriceUsd: number;
+  lifetimePriceUsd: number;
+  bkashNumber: string;
+  nagadNumber: string;
+  rocketNumber: string;
+  paymentInstructions: string;
+  announcementEnabled: boolean;
+  announcementText: string;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  minAppVersion: string;
+  supportEmail: string;
+  adsEnabled?: boolean;
+  rewardedAdsEnabled?: boolean;
+  admobAppId?: string;
+  admobBannerUnitId?: string;
+  admobRewardedUnitId?: string;
+  adsensePublisherId?: string;
+  freeTrialDays?: number;
+  updatedAt: string;
+}
+
+export interface UserAccessRecord {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  plan: SubscriptionPlan;
+  status: 'active' | 'suspended';
+  proExpiresAt?: string | null;
+  grantedBy?: string | null;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+export interface PaymentRequestRecord {
+  id: string;
+  userId: string;
+  userEmail: string | null;
+  userName: string | null;
+  plan: Exclude<SubscriptionPlan, 'free'>;
+  amountBdt: number;
+  method: PaymentMethod;
+  senderNumber: string;
+  transactionId: string;
+  status: 'pending' | 'approved' | 'rejected';
+  adminNote?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+}
+

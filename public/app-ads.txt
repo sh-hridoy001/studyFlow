@@ -1,0 +1,4 @@
+# Google AdMob / AdSense Authorized Sellers (app-ads.txt)
+# Replace pub-0000000000000000 with your real Google AdMob / AdSense Publisher ID before Play Store launch.
+# Example:
+# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

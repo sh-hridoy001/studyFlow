@@ -138,7 +138,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
         <section className="bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 shadow-xs space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Folder className="w-3.5 h-3.5 text-[#ff4757]" />
+              <Folder className="w-3.5 h-3.5 text-[var(--app-accent)]" />
               Choose Folder
             </span>
             <span className="text-[10px] font-medium text-slate-400">
@@ -203,7 +203,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
             htmlFor="new-task-title"
             className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#ff4757]" />
+            <Sparkles className="w-3.5 h-3.5 text-[var(--app-accent)]" />
             <span>Task Name</span>
           </label>
 
@@ -218,7 +218,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
                     onClick={() => setTaskTitle(subject)}
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#ff4757] text-white border-[#ff4757] shadow-2xs'
+                        ? 'bg-[var(--app-accent)] text-white border-[var(--app-accent)] shadow-2xs'
                         : 'bg-slate-100 dark:bg-[#1c1e2c] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[#2a2d40] hover:border-slate-400'
                     }`}
                   >
@@ -241,7 +241,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
                 ? 'e.g. Read 20 pages, Practice Vocabulary...'
                 : `e.g. ${currentFolder?.subjects?.[0] || 'Chapter 3 Revision'}...`
             }
-            className="w-full bg-slate-50 dark:bg-[#181a25] border border-slate-200 dark:border-[#282b3e] rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+            className="w-full bg-slate-50 dark:bg-[#181a25] border border-slate-200 dark:border-[#282b3e] rounded-xl px-3.5 py-3 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
           />
         </section>
 
@@ -252,7 +252,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
               <Clock className="w-3.5 h-3.5 text-emerald-500" />
               Study Time
             </span>
-            <span className="text-xs font-mono font-bold text-[#ff4757]">
+            <span className="text-xs font-mono font-bold text-[var(--app-accent)]">
               {Math.floor((totalSelectedMinutes || 0) / 60)}h {(totalSelectedMinutes || 0) % 60}m
             </span>
           </div>
@@ -268,7 +268,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
                   onClick={() => handleSelectPreset(preset.minutes)}
                   className={`py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer active:scale-95 ${
                     isSelected
-                      ? 'bg-[#ff4757] text-white border-[#ff4757] shadow-xs'
+                      ? 'bg-[var(--app-accent)] text-white border-[var(--app-accent)] shadow-xs'
                       : 'bg-slate-50 dark:bg-[#181a25] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-[#282b3e] hover:border-slate-400'
                   }`}
                 >
@@ -321,7 +321,7 @@ export const AddTaskScreen: React.FC<AddTaskScreenProps> = ({
           <button
             type="submit"
             disabled={!taskTitle.trim()}
-            className="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-[#ff4757] via-[#f43f5e] to-[#e11d48] hover:brightness-105 disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
+            className="flex-1 py-3 px-5 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] disabled:opacity-50 text-white font-extrabold text-xs sm:text-sm shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-[0.99]"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             <span>{editingTask ? 'Save Changes' : 'Add Task'}</span>
@@ -356,7 +356,7 @@ const AddTaskFolderCard: React.FC<{
       {...longPressHandlers}
       className={`relative flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all cursor-pointer select-none active:scale-[0.98] ${
         isSelected
-          ? 'bg-[#ff4757]/8 dark:bg-[#ff4757]/12 border-[#ff4757] ring-1 ring-[#ff4757]/40 shadow-2xs'
+          ? 'bg-[var(--app-accent-soft)] border-[var(--app-accent)] ring-1 ring-[var(--app-accent)]/40 shadow-2xs'
           : 'bg-slate-50 dark:bg-[#181a25] border-slate-200 dark:border-[#26293a] hover:border-slate-300 dark:hover:border-slate-600'
       }`}
     >
@@ -380,7 +380,7 @@ const AddTaskFolderCard: React.FC<{
         </p>
       </div>
       {isSelected && (
-        <span className="w-4 h-4 rounded-full bg-[#ff4757] text-white flex items-center justify-center shrink-0">
+        <span className="w-4 h-4 rounded-full bg-[var(--app-accent)] text-white flex items-center justify-center shrink-0">
           <Check className="w-2.5 h-2.5 stroke-[3]" />
         </span>
       )}

@@ -180,7 +180,7 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
           <button
             type="button"
             onClick={handleStartTimer}
-            className={`py-2.5 px-3 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${
+            className={`py-2.5 px-3 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer ${
               !onOpenFolder ? 'col-span-2' : ''
             }`}
           >
@@ -193,7 +193,7 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
         <form onSubmit={handleSaveDetails} className="space-y-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#181a26] border border-slate-200 dark:border-[#25283a]">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-              <Palette className="w-3.5 h-3.5 text-[#ff4757]" />
+              <Palette className="w-3.5 h-3.5 text-[var(--app-accent)]" />
               Edit Folder Settings
             </span>
             {savedNotice && (
@@ -214,7 +214,7 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Folder name"
-                className="w-full bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+                className="w-full bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
               />
             </div>
 
@@ -227,7 +227,7 @@ export const FolderSettingsModal: React.FC<FolderSettingsModalProps> = ({
                 value={subtitle}
                 onChange={(e) => setSubtitle(e.target.value)}
                 placeholder="e.g. Semester 5, Board Exam"
-                className="w-full bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+                className="w-full bg-white dark:bg-[#12131c] border border-slate-200 dark:border-[#2a2d40] rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
               />
             </div>
 

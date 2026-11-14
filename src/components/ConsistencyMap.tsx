@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useStudy } from '../context/StudyContext';
+import { useAppControl } from '../context/AppControlContext';
 import { toDateKey, formatFriendlyDate, formatDuration } from '../utils/dateUtils';
 import {
   Flame,
@@ -8,6 +9,8 @@ import {
   Clock,
   Moon,
   Sparkles,
+  Lock,
+  Crown,
 } from 'lucide-react';
 
 interface DayActivityModalProps {
@@ -16,7 +19,8 @@ interface DayActivityModalProps {
 }
 
 const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose }) => {
-  const { dateRecords, salahRecords, totalActualMinutes, tasks, folders } = useStudy();
+  const { dateRecords, salahRecords, totalActualMinutes, tasks, folders, accentColor } = useStudy();
+  const accent = accentColor || '#ff4757';
 
   const isToday = dateStr === toDateKey(new Date());
   const record = dateRecords[dateStr];
@@ -28,7 +32,7 @@ const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose })
 
   const dayTasks = isToday
     ? tasks.filter((t) => t.actualMinutes > 0 || t.completed)
-    : record?.tasks || [];
+    : (record?.tasks || []).filter((t) => t.actualMinutes > 0 || t.completed);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
@@ -39,7 +43,13 @@ const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose })
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#25283a]">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${accent} 16%, transparent)`,
+                color: accent,
+              }}
+            >
               <Calendar className="w-4 h-4" />
             </div>
             <div>
@@ -61,9 +71,18 @@ const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose })
         </div>
 
         {/* Total Time Highlight */}
-        <div className="my-3.5 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 flex items-center justify-between">
+        <div
+          className="my-3.5 p-3.5 rounded-2xl border flex items-center justify-between"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${accent} 10%, var(--app-surface, transparent))`,
+            borderColor: `color-mix(in srgb, ${accent} 32%, transparent)`,
+          }}
+        >
           <div>
-            <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-400">
+            <span
+              className="text-[10px] uppercase tracking-wider font-bold"
+              style={{ color: accent }}
+            >
               Total Focus Time
             </span>
             <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
@@ -149,7 +168,7 @@ const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose })
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <div className="text-xs font-bold" style={{ color: accent }}>
                       {formatDuration(t.actualMinutes)}
                     </div>
                     {t.targetMinutes > 0 && (
@@ -166,7 +185,8 @@ const DayActivityModal: React.FC<DayActivityModalProps> = ({ dateStr, onClose })
 
         <button
           onClick={onClose}
-          className="w-full mt-4 py-2.5 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-xs font-bold transition-all cursor-pointer"
+          className="w-full mt-4 py-2.5 rounded-xl text-white text-xs font-bold transition-opacity hover:opacity-90 cursor-pointer"
+          style={{ backgroundColor: accent }}
         >
           Close
         </button>
@@ -182,7 +202,10 @@ export const ConsistencyMap: React.FC = () => {
     totalActualMinutes,
     todaySalahCount,
     streakDays,
+    accentColor,
   } = useStudy();
+  const { isPro, openUpgradeModal } = useAppControl();
+  const accent = accentColor || '#ff4757';
 
   const [selectedDateModal, setSelectedDateModal] = useState<string | null>(null);
   const [hoveredDay, setHoveredDay] = useState<{ dateStr: string; studyMins: number; salahCount: number } | null>(null);
@@ -326,51 +349,84 @@ export const ConsistencyMap: React.FC = () => {
     };
   }, [dateRecords, salahRecords, totalActualMinutes, todaySalahCount]);
 
-  // Exact 5-level green scale matching classic contribution heatmap contrast in Light & Dark mode
-  const getCellClasses = (level: number, isToday: boolean, isFuture: boolean) => {
+  // Dynamic theme-synchronized 5-level activity scale matching the user's selected theme accent color
+  const getCellClasses = (level: number, _isToday: boolean, isFuture: boolean) => {
     if (isFuture) {
       return 'invisible pointer-events-none';
     }
+    if (level === 0) {
+      return 'bg-[#e3e7f0] dark:bg-[#191d29] border-slate-300/70 dark:border-[#262b3b] hover:border-slate-400 dark:hover:border-slate-500';
+    }
+    return 'hover:brightness-110';
+  };
 
-    let base = '';
-    switch (level) {
-      case 0:
-        base =
-          'bg-[#ebedf0] dark:bg-[#161b22] border-slate-200/80 dark:border-[#21262d] hover:border-slate-400 dark:hover:border-slate-500';
-        break;
-      case 1:
-        base =
-          'bg-[#9be9a8] dark:bg-[#0e4429] border-[#82d992] dark:border-[#145534] hover:brightness-110';
-        break;
-      case 2:
-        base =
-          'bg-[#40c463] dark:bg-[#006d32] border-[#30b052] dark:border-[#00853e] hover:brightness-110';
-        break;
-      case 3:
-        base =
-          'bg-[#30a14e] dark:bg-[#26a641] border-[#258a3f] dark:border-[#32c450] hover:brightness-110';
-        break;
-      case 4:
-        base =
-          'bg-[#216e39] dark:bg-[#39d353] border-[#18562b] dark:border-[#56e56e] hover:brightness-110';
-        break;
-      default:
-        base = 'bg-[#ebedf0] dark:bg-[#161b22] border-slate-200/80 dark:border-[#21262d]';
+  const getCellStyle = (level: number, isToday: boolean, isFuture: boolean): React.CSSProperties => {
+    if (isFuture) return {};
+
+    const style: React.CSSProperties = {};
+    if (level === 1) {
+      style.backgroundColor = `color-mix(in srgb, ${accent} 28%, var(--app-surface-subtle, #e2e8f0))`;
+      style.borderColor = `color-mix(in srgb, ${accent} 40%, var(--app-border, #cbd5e1))`;
+    } else if (level === 2) {
+      style.backgroundColor = `color-mix(in srgb, ${accent} 52%, var(--app-surface-subtle, #e2e8f0))`;
+      style.borderColor = `color-mix(in srgb, ${accent} 62%, var(--app-border, #cbd5e1))`;
+    } else if (level === 3) {
+      style.backgroundColor = `color-mix(in srgb, ${accent} 76%, var(--app-surface-subtle, #e2e8f0))`;
+      style.borderColor = `color-mix(in srgb, ${accent} 85%, transparent)`;
+    } else if (level >= 4) {
+      style.backgroundColor = accent;
+      style.borderColor = accent;
     }
 
     if (isToday) {
-      return `${base} ring-1 ring-[#ff4757] ring-offset-1 ring-offset-white dark:ring-offset-[#13141d]`;
+      style.boxShadow = `0 0 0 1.5px var(--app-surface, #ffffff), 0 0 0 3px ${accent}`;
     }
-    return base;
+    return style;
   };
 
   return (
-    <div className="w-full bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 shadow-xs text-slate-900 dark:text-white">
+    <div className="relative w-full bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 shadow-xs text-slate-900 dark:text-white overflow-hidden">
+      {!isPro && (
+        <div className="absolute inset-0 z-20 bg-white/85 dark:bg-[#10111a]/88 backdrop-blur-[3px] flex flex-col items-center justify-center p-5 text-center gap-3">
+          <div
+            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md"
+            style={{ backgroundColor: accent }}
+          >
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="max-w-xs space-y-1">
+            <span
+              className="text-[10px] font-extrabold uppercase tracking-wider block"
+              style={{ color: accent }}
+            >
+              Pro Feature · 30-Day Trial Ended
+            </span>
+            <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+              Daily Activity Heatmap Locked
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Upgrade to FocusTrack Pro (or watch a quick ad for 24h access) to view your streak heatmap &amp; daily breakdowns.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openUpgradeModal('Daily Activity Heatmap')}
+            className="px-4 py-2 rounded-xl text-white text-xs font-extrabold flex items-center gap-1.5 shadow-md cursor-pointer hover:opacity-90"
+            style={{ backgroundColor: accent }}
+          >
+            <Crown className="w-3.5 h-3.5" />
+            <span>Unlock Activity Heatmap</span>
+          </button>
+        </div>
+      )}
       {/* Compact Header */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+            <span
+              className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1"
+              style={{ color: accent }}
+            >
               <Sparkles className="w-3 h-3" />
               Consistency Map
             </span>
@@ -459,11 +515,12 @@ export const ConsistencyMap: React.FC = () => {
                       })
                     }
                     onBlur={() => setHoveredDay(null)}
-                    className={`w-full aspect-square rounded-[2px] sm:rounded-[3px] border transition-transform cursor-pointer active:scale-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400 ${getCellClasses(
+                    className={`w-full aspect-square rounded-[2px] sm:rounded-[3px] border transition-colors cursor-pointer focus-visible:outline-none ${getCellClasses(
                       day.level,
                       day.isToday,
                       day.isFuture
                     )}`}
+                    style={getCellStyle(day.level, day.isToday, day.isFuture)}
                     title={
                       day.isFuture
                         ? ''
@@ -487,7 +544,7 @@ export const ConsistencyMap: React.FC = () => {
         <div className="mt-2 h-4 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
           {hoveredDay ? (
             <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
-              <strong className="text-emerald-600 dark:text-emerald-400">
+              <strong style={{ color: accent }}>
                 {hoveredDay.studyMins > 0 ? formatDuration(hoveredDay.studyMins) : '0m'}
               </strong>{' '}
               on {formatFriendlyDate(hoveredDay.dateStr)} · {hoveredDay.salahCount}/5 Salah
@@ -498,10 +555,10 @@ export const ConsistencyMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer: Total Activities Time + Intensity Legend */}
+      {/* Footer: Total Activities Time + Theme-Synced Intensity Legend */}
       <div className="mt-2.5 pt-2.5 border-t border-slate-100 dark:border-[#202231] flex flex-wrap items-center justify-between gap-2 text-[11px]">
         <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-          <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: accent }} />
           <span>Total Activities Time:</span>
           <strong className="text-slate-900 dark:text-white font-bold text-xs tabular-nums">
             {formatDuration(totalActivityMinutes)}
@@ -510,11 +567,17 @@ export const ConsistencyMap: React.FC = () => {
 
         <div className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
           <span>Less</span>
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#ebedf0] dark:bg-[#161b22] border border-slate-200/80 dark:border-[#21262d]" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#9be9a8] dark:bg-[#0e4429] border border-[#82d992] dark:border-[#145534]" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#40c463] dark:bg-[#006d32] border border-[#30b052] dark:border-[#00853e]" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#30a14e] dark:bg-[#26a641] border border-[#258a3f] dark:border-[#32c450]" />
-          <span className="w-2.5 h-2.5 rounded-[2px] bg-[#216e39] dark:bg-[#39d353] border border-[#18562b] dark:border-[#56e56e]" />
+          {[0, 1, 2, 3, 4].map((lvl) => (
+            <span
+              key={lvl}
+              className={`w-2.5 h-2.5 rounded-[2px] border ${
+                lvl === 0
+                  ? 'bg-[#e3e7f0] dark:bg-[#191d29] border-slate-300/70 dark:border-[#262b3b]'
+                  : ''
+              }`}
+              style={getCellStyle(lvl, false, false)}
+            />
+          ))}
           <span>More</span>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStudy } from '../context/StudyContext';
+import { useAppControl } from '../context/AppControlContext';
 import {
   Play,
   Pause,
@@ -23,6 +24,7 @@ import {
   Plus,
   ArrowLeft,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -92,9 +94,15 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     addStudyTimeToTask,
     totalActualMinutes,
     totalTargetMinutes,
+    accentColor,
+    auroraRing,
+    glassMode,
+    surfaceTheme,
   } = useStudy();
+  const { isPro, openUpgradeModal } = useAppControl();
 
   const [mode, setMode] = useState<TimerMode>('stopwatch');
+  const [pomodoroMinutes, setPomodoroMinutes] = useState<15 | 25 | 45 | 60 | 90>(25);
   const [isSubjectPickerOpen, setIsSubjectPickerOpen] = useState(false);
   const [hasPickedSubjectThisSession, setHasPickedSubjectThisSession] = useState(false);
   const [selectedSessionTarget, setSelectedSessionTarget] = useState<{
@@ -139,7 +147,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
         folders[0] || {
           id: 'default',
           name: 'General Study',
-          color: '#ff4757',
+          color: accentColor || '#ff4757',
         };
 
   const activeSubjectLabel = activeTask
@@ -249,6 +257,14 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     setSoundscapePlaying(false);
   };
 
+  useEffect(() => {
+    if (!isPro) {
+      if (soundscapePlaying) stopSoundscape();
+      setIsSoundModalOpen(false);
+      setIsZenModeOpen(false);
+    }
+  }, [isPro, soundscapePlaying]);
+
   const toggleSoundscape = () => {
     playUiClickSound();
     if (soundscapePlaying) {
@@ -294,7 +310,10 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
               try {
                 new Notification('FocusTrack Timer Complete', {
-                  body: mode === 'pomodoro' ? '25-minute focus session saved! Take a short break.' : 'Break finished! Ready to focus again.',
+                  body:
+                    mode === 'pomodoro'
+                      ? `${pomodoroMinutes}-minute focus session saved! Take a short break.`
+                      : 'Break finished! Ready to focus again.',
                   icon: '/pwa-192x192.png',
                 });
               } catch {
@@ -303,7 +322,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             }
             setIsPomodoroRunning(false);
             if (mode === 'pomodoro' && activeTask) {
-              addStudyTimeToTask(activeTask.id, 25);
+              addStudyTimeToTask(activeTask.id, pomodoroMinutes);
             }
             return 0;
           }
@@ -314,7 +333,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPomodoroRunning, pomodoroSecondsLeft, mode, activeTask, addStudyTimeToTask]);
+  }, [isPomodoroRunning, pomodoroSecondsLeft, mode, pomodoroMinutes, activeTask, addStudyTimeToTask]);
 
   // Handle Mode Selection
   const handleSelectMode = (newMode: TimerMode) => {
@@ -322,7 +341,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     setMode(newMode);
     setIsPomodoroRunning(false);
     if (newMode === 'pomodoro') {
-      setPomodoroSecondsLeft(25 * 60);
+      setPomodoroSecondsLeft(pomodoroMinutes * 60);
       if (stopwatch.isRunning) pauseStopwatch();
     } else if (newMode === 'shortBreak') {
       setPomodoroSecondsLeft(5 * 60);
@@ -331,6 +350,17 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
       setPomodoroSecondsLeft(15 * 60);
       if (stopwatch.isRunning) pauseStopwatch();
     }
+  };
+
+  const handleSelectPomodoroDuration = (mins: 15 | 25 | 45 | 60 | 90) => {
+    playUiClickSound();
+    if (mins >= 45 && !isPro) {
+      openUpgradeModal('Extended Deep Focus Timers (45m–90m)');
+      return;
+    }
+    setPomodoroMinutes(mins);
+    setIsPomodoroRunning(false);
+    setPomodoroSecondsLeft(mins * 60);
   };
 
   // Time calculations (Always include Hours in HH:MM:SS format)
@@ -352,7 +382,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     displayHours = Math.floor(pomodoroSecondsLeft / 3600);
     displayMinutes = Math.floor((pomodoroSecondsLeft % 3600) / 60);
     displaySeconds = pomodoroSecondsLeft % 60;
-    const totalSec = mode === 'pomodoro' ? 25 * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60;
+    const totalSec = mode === 'pomodoro' ? pomodoroMinutes * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60;
     progressFraction = 1 - pomodoroSecondsLeft / totalSec;
   }
 
@@ -378,7 +408,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
       }
     } else {
       if (pomodoroSecondsLeft <= 0) {
-        setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : 5 * 60);
+        setPomodoroSecondsLeft(mode === 'pomodoro' ? pomodoroMinutes * 60 : 5 * 60);
       }
       setIsPomodoroRunning(true);
     }
@@ -404,11 +434,15 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
     } else {
       if (isPomodoroRunning) {
         setIsPomodoroRunning(false);
-      } else if (mode === 'pomodoro' && !hasPickedSubjectThisSession && pomodoroSecondsLeft === 25 * 60) {
+      } else if (
+        mode === 'pomodoro' &&
+        !hasPickedSubjectThisSession &&
+        pomodoroSecondsLeft === pomodoroMinutes * 60
+      ) {
         openSubjectPicker();
       } else {
         if (pomodoroSecondsLeft <= 0) {
-          setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : 5 * 60);
+          setPomodoroSecondsLeft(mode === 'pomodoro' ? pomodoroMinutes * 60 : 5 * 60);
         }
         setIsPomodoroRunning(true);
       }
@@ -423,7 +457,9 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
       resetStopwatch();
     } else {
       setIsPomodoroRunning(false);
-      setPomodoroSecondsLeft(mode === 'pomodoro' ? 25 * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60);
+      setPomodoroSecondsLeft(
+        mode === 'pomodoro' ? pomodoroMinutes * 60 : mode === 'shortBreak' ? 5 * 60 : 15 * 60
+      );
     }
   };
 
@@ -444,7 +480,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - progressFraction * circumference;
-  const themeRed = '#ff4757';
+  const themeRed = accentColor || '#ff4757';
 
   return (
     <div className="relative w-full bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col items-center text-slate-900 dark:text-white overflow-hidden transition-all">
@@ -492,7 +528,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                   setIsSubjectPickerOpen(false);
                   onOpenAddTask();
                 }}
-                className="text-[11px] font-bold text-[#ff4757] hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
+                className="text-[11px] font-bold text-[var(--app-accent)] hover:underline flex items-center gap-0.5 cursor-pointer shrink-0"
               >
                 <Plus className="w-3 h-3" /> New Task
               </button>
@@ -600,10 +636,10 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                                       subjectName: subject,
                                     });
                                   }}
-                                  className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-[#ff4757] transition-all cursor-pointer active:scale-95"
+                                  className="flex items-center justify-between gap-1.5 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[var(--app-accent)] text-left text-xs font-semibold text-slate-800 dark:text-slate-200 hover:text-[var(--app-accent)] transition-all cursor-pointer active:scale-95"
                                 >
                                   <span className="truncate">{subject}</span>
-                                  <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757] shrink-0" />
+                                  <Play className="w-3 h-3 text-[var(--app-accent)] fill-[var(--app-accent)] shrink-0" />
                                 </button>
                               ))}
                             </div>
@@ -628,14 +664,14 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                                     subjectName: task.subjectName,
                                   });
                                 }}
-                                className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[#ff4757] text-left text-xs transition-all cursor-pointer"
+                                className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] hover:border-[var(--app-accent)] text-left text-xs transition-all cursor-pointer"
                               >
                                 <span className="truncate font-semibold text-slate-800 dark:text-slate-200">
                                   {task.topics ? `${task.subjectName} — ${task.topics}` : task.subjectName}
                                 </span>
                                 <span className="text-[10px] font-mono text-slate-400 shrink-0 flex items-center gap-1">
                                   {task.actualMinutes}/{task.targetMinutes}m
-                                  <Play className="w-3 h-3 text-[#ff4757] fill-[#ff4757]" />
+                                  <Play className="w-3 h-3 text-[var(--app-accent)] fill-[var(--app-accent)]" />
                                 </span>
                               </button>
                             ))}
@@ -663,12 +699,12 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                               setCustomSubjectInput(e.target.value);
                             }}
                             placeholder={`Other subject in ${folder.name}...`}
-                            className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#ff4757]"
+                            className="flex-1 bg-white dark:bg-[#11121b] border border-slate-200 dark:border-[#2a2e42] rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[var(--app-accent)]"
                           />
                           {customSubjectFolderId === folder.id && customSubjectInput.trim() ? (
                             <button
                               type="submit"
-                              className="px-2.5 py-1.5 rounded-xl bg-[#ff4757] hover:bg-[#ff3344] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+                              className="px-2.5 py-1.5 rounded-xl bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)] text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
                             >
                               <Play className="w-3 h-3 fill-white" />
                               <span>Start</span>
@@ -768,58 +804,74 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             <button
               onClick={() => {
                 playUiClickSound();
+                if (!isPro) {
+                  openUpgradeModal('Focus Soundscapes Studio');
+                  return;
+                }
                 setIsSoundModalOpen(true);
               }}
-              className={`p-2 rounded-xl border transition-all cursor-pointer ${
+              className={`relative p-2 rounded-xl border transition-all cursor-pointer ${
                 soundscapePlaying
-                  ? 'bg-[#ff4757]/15 border-[#ff4757] text-[#ff4757] animate-pulse'
+                  ? 'bg-[var(--app-accent-soft)] border-[var(--app-accent)] text-[var(--app-accent)] animate-pulse'
                   : 'bg-slate-100 dark:bg-[#1b1c28] border-slate-200 dark:border-[#2a2c3e] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
-              title="Multi-Track Ambient Soundscapes"
+              title={isPro ? 'Multi-Track Ambient Soundscapes' : 'Pro Feature: Focus Soundscapes Studio'}
               aria-label="Soundscapes"
             >
               {soundscapePlaying ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              {!isPro && (
+                <Lock className="w-2.5 h-2.5 text-[var(--app-accent)] absolute -top-1 -right-1 bg-white dark:bg-[#13141d] rounded-full p-0.2" />
+              )}
             </button>
 
             {/* Premium Feature: Zen Fullscreen Mode Trigger */}
             <button
               onClick={() => {
                 playUiClickSound();
+                if (!isPro) {
+                  openUpgradeModal('Full-Screen OLED Zen Mode');
+                  return;
+                }
                 setIsZenModeOpen(true);
               }}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-[#1b1c28] border border-slate-200 dark:border-[#2a2c3e] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-90"
-              title="Full-Screen OLED Zen Mode"
+              className="relative p-2 rounded-xl bg-slate-100 dark:bg-[#1b1c28] border border-slate-200 dark:border-[#2a2c3e] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shadow-2xs active:scale-90"
+              title={isPro ? 'Full-Screen OLED Zen Mode' : 'Pro Feature: Full-Screen OLED Zen Mode'}
               aria-label="Zen Mode"
             >
               <Maximize2 className="w-4 h-4" />
+              {!isPro && (
+                <Lock className="w-2.5 h-2.5 text-[var(--app-accent)] absolute -top-1 -right-1 bg-white dark:bg-[#13141d] rounded-full p-0.2" />
+              )}
             </button>
           </div>
 
           {/* Mode Switcher Tabs */}
-          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-[#171822] p-1 rounded-xl border border-slate-200 dark:border-[#242636] mb-3 w-full max-w-[280px]">
+          <div className="flex items-center justify-center gap-1 bg-slate-100 dark:bg-[#171822] p-1 rounded-xl border border-slate-200 dark:border-[#242636] mb-2.5 w-full max-w-[290px]">
             <button
               onClick={() => handleSelectMode('stopwatch')}
-              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                 mode === 'stopwatch'
-                  ? 'bg-[#ff4757] text-white shadow-xs'
+                  ? 'text-white shadow-xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
+              style={mode === 'stopwatch' ? { backgroundColor: themeRed } : undefined}
             >
               Stopwatch
             </button>
             <button
               onClick={() => handleSelectMode('pomodoro')}
-              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                 mode === 'pomodoro'
-                  ? 'bg-[#ff4757] text-white shadow-xs'
+                  ? 'text-white shadow-xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
+              style={mode === 'pomodoro' ? { backgroundColor: themeRed } : undefined}
             >
-              25m Focus
+              {pomodoroMinutes}m Focus
             </button>
             <button
               onClick={() => handleSelectMode('shortBreak')}
-              className={`flex-1 py-1 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 py-1.5 px-2 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
                 mode === 'shortBreak'
                   ? 'bg-emerald-600 text-white shadow-xs'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -829,14 +881,68 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             </button>
           </div>
 
+          {/* Custom Pomodoro Duration Selector Pills */}
+          {mode === 'pomodoro' && (
+            <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
+              {([15, 25, 45, 60, 90] as const).map((mins) => {
+                const isSelected = pomodoroMinutes === mins;
+                const isLocked = mins >= 45 && !isPro;
+                return (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => handleSelectPomodoroDuration(mins)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'text-white shadow-2xs'
+                        : 'bg-slate-100 dark:bg-[#191b27] border-slate-200 dark:border-[#272a3d] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#222536]'
+                    }`}
+                    style={
+                      isSelected
+                        ? { backgroundColor: themeRed, borderColor: themeRed }
+                        : undefined
+                    }
+                    title={
+                      isLocked
+                        ? `Pro Feature: ${mins}m Deep Focus Session`
+                        : `Set ${mins} minute focus timer`
+                    }
+                  >
+                    <span>{mins}m</span>
+                    {isLocked && <Lock className="w-2.5 h-2.5 opacity-80" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Circular Progress Ring & Dial */}
           <div className="relative my-1 flex items-center justify-center">
-            <svg width={size} height={size} className="transform -rotate-90">
+            {(auroraRing || surfaceTheme === 'midnight-glass' || glassMode !== 'off') && (
+              <div
+                className="pointer-events-none absolute inset-3 rounded-full blur-xl opacity-45 transition-opacity duration-500"
+                style={{
+                  background: auroraRing
+                    ? `conic-gradient(from 40deg, #22d3ee33, #818cf833, #ec489933, ${themeRed}44, #22d3ee33)`
+                    : `radial-gradient(circle, ${themeRed}28 0%, transparent 70%)`,
+                }}
+              />
+            )}
+            <svg width={size} height={size} className="transform -rotate-90 relative z-10">
+              <defs>
+                <linearGradient id="auroraTimerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#22d3ee" />
+                  <stop offset="38%" stopColor="#6366f1" />
+                  <stop offset="72%" stopColor="#ec4899" />
+                  <stop offset="100%" stopColor={themeRed} />
+                </linearGradient>
+              </defs>
               <circle
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
                 className="stroke-slate-200 dark:stroke-[#1a1c27]"
+                strokeOpacity={surfaceTheme === 'midnight-glass' || glassMode !== 'off' ? 0.5 : 1}
                 strokeWidth={strokeWidth}
                 fill="transparent"
               />
@@ -855,7 +961,13 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={mode === 'shortBreak' || mode === 'longBreak' ? '#10b981' : themeRed}
+                stroke={
+                  mode === 'shortBreak' || mode === 'longBreak'
+                    ? '#10b981'
+                    : auroraRing
+                    ? 'url(#auroraTimerGrad)'
+                    : themeRed
+                }
                 strokeWidth={strokeWidth}
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
@@ -863,7 +975,11 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                 fill="transparent"
                 className="transition-all duration-500 ease-out"
                 style={{
-                  filter: isTimerActive ? `drop-shadow(0 0 8px ${themeRed}70)` : 'none',
+                  filter: auroraRing
+                    ? `drop-shadow(0 0 8px rgba(34,211,238,0.45)) drop-shadow(0 0 14px ${themeRed}66)`
+                    : isTimerActive
+                    ? `drop-shadow(0 0 8px ${themeRed}70)`
+                    : 'none',
                 }}
               />
             </svg>
@@ -873,8 +989,11 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
               <div className="flex items-center gap-1 text-[11px] font-semibold mb-0.5">
                 {isTimerActive ? (
                   <>
-                    <Flame className="w-3 h-3 text-[#ff4757] fill-[#ff4757] animate-pulse" />
-                    <span className="text-[#ff4757] font-bold tracking-wide">
+                    <Flame
+                      className="w-3 h-3 animate-pulse"
+                      style={{ color: themeRed, fill: themeRed }}
+                    />
+                    <span className="font-bold tracking-wide" style={{ color: themeRed }}>
                       {mode === 'shortBreak' ? 'Resting...' : 'Deep Focus'}
                     </span>
                   </>
@@ -918,11 +1037,13 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             {/* Primary Play/Pause Button */}
             <button
               onClick={handleToggleTimer}
-              className={`w-13 h-13 rounded-full flex items-center justify-center text-white shadow-lg transition-all cursor-pointer active:scale-90 ${
-                isTimerActive
-                  ? 'bg-[#e03848] ring-4 ring-[#ff4757]/25 shadow-[#ff4757]/35'
-                  : 'bg-[#ff4757] hover:bg-[#ff3344] shadow-[#ff4757]/30'
-              }`}
+              className="w-13 h-13 rounded-full flex items-center justify-center text-white shadow-lg transition-all cursor-pointer active:scale-90"
+              style={{
+                backgroundColor: themeRed,
+                boxShadow: isTimerActive
+                  ? `0 0 0 4px ${themeRed}33, 0 10px 22px -6px ${themeRed}70`
+                  : `0 10px 20px -6px ${themeRed}66`,
+              }}
               title={isTimerActive ? 'Pause Study Timer' : 'Start Study Timer'}
               aria-label={isTimerActive ? 'Pause' : 'Play'}
             >
@@ -976,7 +1097,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
           <div className="w-full max-w-sm bg-white dark:bg-[#161723] border border-slate-200 dark:border-[#282b3d] rounded-3xl p-5 shadow-2xl text-slate-900 dark:text-white">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#242738] mb-4">
               <div className="flex items-center gap-2">
-                <Volume2 className="w-5 h-5 text-[#ff4757]" />
+                <Volume2 className="w-5 h-5" style={{ color: themeRed }} />
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">Focus Soundscapes Studio</h3>
               </div>
               <button
@@ -1005,7 +1126,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                   onClick={() => handleSelectSoundscape(sound.id as SoundscapeType)}
                   className={`p-3 rounded-2xl text-xs font-bold border transition-all text-left cursor-pointer ${
                     activeSoundscape === sound.id
-                      ? 'bg-[#ff4757]/12 border-[#ff4757] text-[#ff4757]'
+                      ? 'bg-[var(--app-accent-soft)] border-[var(--app-accent)] text-[var(--app-accent)]'
                       : 'bg-slate-50 dark:bg-[#1d1f2d] border-slate-200 dark:border-[#292c3e] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#252839]'
                   }`}
                 >
@@ -1027,17 +1148,18 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                 step="0.01"
                 value={soundVolume}
                 onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                className="w-full accent-[#ff4757] cursor-pointer"
+                className="w-full cursor-pointer"
+                style={{ accentColor: themeRed }}
               />
             </div>
 
             {/* Toggle Play / Stop button */}
             <button
               onClick={toggleSoundscape}
-              className={`w-full py-3 rounded-2xl font-bold text-xs shadow-lg transition-all cursor-pointer ${
+              className={`w-full py-3 rounded-2xl font-bold text-xs shadow-lg transition-all cursor-pointer text-white ${
                 soundscapePlaying
-                  ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                  : 'bg-[#ff4757] hover:bg-[#ff3344] text-white'
+                  ? 'bg-rose-600 hover:bg-rose-700'
+                  : 'bg-[var(--app-accent)] hover:bg-[var(--app-accent-hover)]'
               }`}
             >
               {soundscapePlaying ? 'Pause Ambient Sound' : 'Play Ambient Sound'}
@@ -1079,12 +1201,22 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
 
           {/* Huge Central Digital Clock */}
           <div className="flex flex-col items-center justify-center my-auto text-center">
-            <div className="text-[12px] font-extrabold uppercase tracking-widest text-[#ff4757] mb-2 flex items-center gap-1.5">
-              <Flame className="w-4 h-4 fill-[#ff4757] animate-bounce" />
+            <div
+              className="text-[12px] font-extrabold uppercase tracking-widest mb-2 flex items-center gap-1.5"
+              style={{ color: themeRed }}
+            >
+              <Flame className="w-4 h-4 animate-bounce" style={{ fill: themeRed }} />
               <span>Deep Zen Focus</span>
             </div>
 
-            <div className="font-mono text-7xl sm:text-9xl font-black tracking-tight text-white drop-shadow-[0_0_35px_rgba(255,71,87,0.4)]">
+            <div
+              className="font-mono text-7xl sm:text-9xl font-black tracking-tight text-white"
+              style={{
+                textShadow: auroraRing
+                  ? `0 0 35px rgba(34, 211, 238, 0.45), 0 0 55px ${themeRed}55`
+                  : `0 0 35px ${themeRed}66`,
+              }}
+            >
               {formattedTime}
             </div>
 
@@ -1096,7 +1228,11 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
             <div className="mt-8 flex items-center gap-4">
               <button
                 onClick={handleToggleTimer}
-                className="px-8 py-4 rounded-full bg-[#ff4757] hover:bg-[#ff3344] text-white font-extrabold text-sm shadow-2xl shadow-[#ff4757]/50 active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                className="px-8 py-4 rounded-full text-white font-extrabold text-sm shadow-2xl active:scale-95 transition-all cursor-pointer flex items-center gap-2"
+                style={{
+                  backgroundColor: themeRed,
+                  boxShadow: `0 18px 40px -10px ${themeRed}88`,
+                }}
               >
                 {isTimerActive ? (
                   <>
