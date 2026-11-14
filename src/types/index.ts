@@ -99,7 +99,7 @@ export interface DailySalahRecord {
 
 export type ActiveMainTab = 'routine' | 'tasks' | 'salah' | 'milestones' | 'history' | 'folders' | 'add-task' | 'legal' | 'admin' | 'guide';
 
-export type SurfaceThemeId = 'soft-light' | 'warm-paper' | 'dark' | 'amoled' | 'midnight-glass';
+export type SurfaceThemeId = 'soft-light' | 'warm-paper' | 'arctic-glass' | 'dark' | 'amoled' | 'midnight-glass';
 export type GlassEffectLevel = 'off' | 'subtle' | 'strong';
 
 export interface CustomThemePreset {

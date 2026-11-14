@@ -23,6 +23,14 @@
     --app-border: #dcd2bd;
   }
 
+  html[data-surface="arctic-glass"] {
+    color-scheme: light;
+    --app-bg: #dce7f8;
+    --app-surface: rgba(255, 255, 255, 0.72);
+    --app-surface-subtle: rgba(241, 246, 255, 0.65);
+    --app-border: rgba(255, 255, 255, 0.88);
+  }
+
   html.dark {
     color-scheme: dark;
     --app-bg: #0a0b10;
@@ -38,12 +46,13 @@
     --app-border: #1d202d;
   }
 
+  /* Crystal Twilight Glass (Soothing Obsidian-Slate with soft ambient light, high readability) */
   html.dark[data-surface="midnight-glass"] {
     color-scheme: dark;
-    --app-bg: #041336;
-    --app-surface: rgba(12, 34, 86, 0.56);
-    --app-surface-subtle: rgba(18, 46, 110, 0.48);
-    --app-border: rgba(148, 197, 255, 0.22);
+    --app-bg: #090d16;
+    --app-surface: rgba(20, 27, 45, 0.62);
+    --app-surface-subtle: rgba(28, 38, 62, 0.56);
+    --app-border: rgba(255, 255, 255, 0.16);
   }
 
   html {
@@ -62,38 +71,70 @@
 
   body {
     background-color: var(--app-bg);
-    @apply text-slate-900 dark:text-slate-100 antialiased transition-colors duration-200;
+    @apply text-slate-900 dark:text-slate-100 antialiased transition-colors duration-300;
   }
 
+  /* Crisp, eye-friendly ambient gradient canvas for Glass & Glass-enabled themes */
   html.dark[data-surface="midnight-glass"] body {
-    background-color: #041336;
+    background-color: #090d16;
     background-image:
-      radial-gradient(circle at 14% 16%, rgba(34, 211, 238, 0.16) 0%, transparent 42%),
-      radial-gradient(circle at 86% 22%, color-mix(in srgb, var(--app-accent) 18%, transparent) 0%, transparent 44%),
-      radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.14) 0%, transparent 45%),
-      linear-gradient(155deg, #03102d 0%, #071e54 50%, #031236 100%);
+      radial-gradient(ellipse 65% 50% at 15% 12%, color-mix(in srgb, var(--app-accent) 22%, transparent) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 45% at 88% 18%, rgba(56, 189, 248, 0.16) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 50% at 50% 92%, rgba(99, 102, 241, 0.16) 0%, transparent 65%),
+      linear-gradient(160deg, #070b14 0%, #0d1424 52%, #080c17 100%);
+    background-attachment: fixed;
+  }
+
+  html[data-surface="arctic-glass"] body {
+    background-color: #dce7f8;
+    background-image:
+      radial-gradient(ellipse 65% 50% at 12% 10%, rgba(125, 211, 252, 0.42) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 48% at 88% 16%, color-mix(in srgb, var(--app-accent) 18%, transparent) 0%, transparent 65%),
+      radial-gradient(ellipse 70% 50% at 52% 92%, rgba(165, 180, 252, 0.34) 0%, transparent 65%),
+      linear-gradient(155deg, #e5eefc 0%, #eef2ff 50%, #e4f4f8 100%);
+    background-attachment: fixed;
+  }
+
+  /* Add gentle background light mesh whenever user activates Glassy UI on standard themes */
+  html.dark:not([data-surface="midnight-glass"])[data-glass="subtle"] body,
+  html.dark:not([data-surface="midnight-glass"])[data-glass="strong"] body {
+    background-image:
+      radial-gradient(ellipse 60% 45% at 15% 15%, color-mix(in srgb, var(--app-accent) 18%, transparent) 0%, transparent 68%),
+      radial-gradient(ellipse 55% 45% at 85% 80%, rgba(56, 189, 248, 0.13) 0%, transparent 68%);
+    background-attachment: fixed;
+  }
+
+  html:not(.dark):not([data-surface="arctic-glass"])[data-glass="subtle"] body,
+  html:not(.dark):not([data-surface="arctic-glass"])[data-glass="strong"] body {
+    background-image:
+      radial-gradient(ellipse 60% 45% at 15% 14%, color-mix(in srgb, var(--app-accent) 14%, transparent) 0%, transparent 68%),
+      radial-gradient(ellipse 55% 45% at 86% 82%, rgba(99, 102, 241, 0.14) 0%, transparent 68%);
     background-attachment: fixed;
   }
 }
 
-/* Soft Light & Warm Paper elevation tuning (eliminates harsh blinding white glare) */
+/* Soft Light, Warm Paper & Arctic Frost card surface tuning */
 html:not(.dark)[data-surface="soft-light"] .bg-white,
-html:not(.dark)[data-surface="warm-paper"] .bg-white {
+html:not(.dark)[data-surface="warm-paper"] .bg-white,
+html:not(.dark)[data-surface="arctic-glass"] .bg-white {
   background-color: var(--app-surface);
 }
 
 html:not(.dark)[data-surface="soft-light"] .bg-\[\#f5f7fb\],
-html:not(.dark)[data-surface="warm-paper"] .bg-\[\#f5f7fb\] {
+html:not(.dark)[data-surface="warm-paper"] .bg-\[\#f5f7fb\],
+html:not(.dark)[data-surface="arctic-glass"] .bg-\[\#f5f7fb\] {
   background-color: var(--app-bg);
 }
 
 html:not(.dark)[data-surface="soft-light"] .bg-slate-50,
-html:not(.dark)[data-surface="warm-paper"] .bg-slate-50 {
+html:not(.dark)[data-surface="warm-paper"] .bg-slate-50,
+html:not(.dark)[data-surface="arctic-glass"] .bg-slate-50 {
   background-color: var(--app-surface-subtle);
 }
 
 html:not(.dark)[data-surface="soft-light"] .border-slate-200,
-html:not(.dark)[data-surface="warm-paper"] .border-slate-200 {
+html:not(.dark)[data-surface="warm-paper"] .border-slate-200,
+html:not(.dark)[data-surface="arctic-glass"] .border-slate-200 {
   border-color: var(--app-border);
 }
 
@@ -110,10 +151,10 @@ html.dark[data-surface="amoled"] .dark\:border-\[\#222434\] {
   border-color: #1c1f2b;
 }
 
-/* Midnight Sapphire Glass palette harmonization */
+/* Crystal Twilight Glass palette harmonization */
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#13141d\],
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#151722\] {
-  background-color: rgba(11, 32, 82, 0.68);
+  background-color: rgba(19, 27, 45, 0.64);
 }
 
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#181a26\],
@@ -121,13 +162,19 @@ html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#191b27\],
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#171822\],
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#1b1c28\],
 html.dark[data-surface="midnight-glass"] main .dark\:bg-\[\#12131c\] {
-  background-color: rgba(18, 45, 108, 0.52);
+  background-color: rgba(28, 38, 62, 0.52);
 }
 
 html.dark[data-surface="midnight-glass"] header.sticky,
 html.dark[data-surface="midnight-glass"] nav.fixed {
-  background-color: rgba(6, 22, 60, 0.8);
-  border-color: rgba(148, 197, 255, 0.2);
+  background-color: rgba(12, 18, 32, 0.72);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+html[data-surface="arctic-glass"] header.sticky,
+html[data-surface="arctic-glass"] nav.fixed {
+  background-color: rgba(255, 255, 255, 0.68);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 
 html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#222434\],
@@ -135,53 +182,88 @@ html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#232638\],
 html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#242636\],
 html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#26293b\],
 html.dark[data-surface="midnight-glass"] main .dark\:border-\[\#2a2c3e\] {
-  border-color: rgba(148, 197, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* User-Controlled Glassmorphism Look (Subtle & Strong Frosted Glass) */
+/* User-Controlled Glassmorphism Engine (Subtle & Frosted) */
 html[data-glass="subtle"] header.sticky,
 html[data-glass="subtle"] nav.fixed {
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
 }
 
 html[data-glass="subtle"] main .rounded-2xl.bg-white,
 html[data-glass="subtle"] main .rounded-3xl.bg-white,
 html[data-glass="subtle"] [data-glass-panel] {
-  background-color: color-mix(in srgb, var(--app-surface) 84%, transparent);
-  backdrop-filter: blur(12px) saturate(135%);
-  -webkit-backdrop-filter: blur(12px) saturate(135%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 10px 26px -14px rgba(2, 6, 23, 0.35);
+  background-color: color-mix(in srgb, var(--app-surface) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(155%);
+  -webkit-backdrop-filter: blur(14px) saturate(155%);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 28px -14px rgba(2, 6, 23, 0.35);
+}
+
+html:not(.dark)[data-glass="subtle"] main .rounded-2xl.bg-white,
+html:not(.dark)[data-glass="subtle"] main .rounded-3xl.bg-white,
+html:not(.dark)[data-glass="subtle"] [data-glass-panel] {
+  border-color: rgba(255, 255, 255, 0.78);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 12px 26px -14px rgba(15, 23, 42, 0.14);
 }
 
 html[data-glass="strong"] header.sticky,
 html[data-glass="strong"] nav.fixed {
-  background-color: color-mix(in srgb, var(--app-surface) 66%, transparent);
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  background-color: color-mix(in srgb, var(--app-surface) 56%, transparent);
+  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+html:not(.dark)[data-glass="strong"] header.sticky,
+html:not(.dark)[data-glass="strong"] nav.fixed {
+  background-color: rgba(255, 255, 255, 0.56);
+  border-color: rgba(255, 255, 255, 0.86);
 }
 
 html[data-glass="strong"] main .rounded-2xl.bg-white,
 html[data-glass="strong"] main .rounded-3xl.bg-white,
 html[data-glass="strong"] [data-glass-panel] {
-  background-color: color-mix(in srgb, var(--app-surface) 58%, transparent);
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-  border-color: rgba(255, 255, 255, 0.24);
+  background-color: color-mix(in srgb, var(--app-surface) 50%, transparent);
+  backdrop-filter: blur(26px) saturate(190%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%);
+  border-color: rgba(255, 255, 255, 0.22);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 38px -18px rgba(2, 10, 36, 0.55);
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    0 20px 40px -18px rgba(2, 8, 28, 0.55);
+}
+
+html[data-glass="strong"] main .dark\:bg-\[\#181a26\],
+html[data-glass="strong"] main .dark\:bg-\[\#191b27\],
+html[data-glass="strong"] main .dark\:bg-\[\#171822\],
+html[data-glass="strong"] main .dark\:bg-\[\#1b1c28\],
+html[data-glass="strong"] main .dark\:bg-\[\#191a25\] {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 html:not(.dark)[data-glass="strong"] main .rounded-2xl.bg-white,
 html:not(.dark)[data-glass="strong"] main .rounded-3xl.bg-white,
 html:not(.dark)[data-glass="strong"] [data-glass-panel] {
-  background-color: color-mix(in srgb, var(--app-surface) 68%, transparent);
-  border-color: rgba(255, 255, 255, 0.78);
+  background-color: rgba(255, 255, 255, 0.58);
+  border-color: rgba(255, 255, 255, 0.88);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 16px 32px -16px rgba(15, 23, 42, 0.16);
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.45),
+    0 18px 36px -16px rgba(15, 23, 42, 0.14);
+}
+
+html:not(.dark)[data-glass="strong"] main .bg-slate-50,
+html:not(.dark)[data-glass="strong"] main .bg-slate-100 {
+  background-color: rgba(255, 255, 255, 0.52);
+  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .pb-safe {

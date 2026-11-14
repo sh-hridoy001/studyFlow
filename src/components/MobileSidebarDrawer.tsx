@@ -297,9 +297,11 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
       <div
         className={`relative w-full max-w-[360px] sm:max-w-sm text-slate-900 dark:text-white h-full shadow-2xl flex flex-col z-10 border-l animate-in slide-in-from-right duration-200 ${
           surfaceTheme === 'midnight-glass'
-            ? 'bg-[#071947]/92 backdrop-blur-xl border-sky-300/20'
+            ? 'bg-[#0b101d]/86 backdrop-blur-2xl border-white/15'
+            : surfaceTheme === 'arctic-glass'
+            ? 'bg-white/75 backdrop-blur-2xl border-white/85'
             : glassMode !== 'off'
-            ? 'bg-white/88 dark:bg-[#101118]/86 backdrop-blur-xl border-slate-200/80 dark:border-white/15'
+            ? 'bg-white/84 dark:bg-[#10131e]/82 backdrop-blur-2xl border-slate-200/80 dark:border-white/15'
             : 'bg-[#f8f9fc] dark:bg-[#101118] border-slate-200 dark:border-[#222434]'
         }`}
       >
@@ -307,9 +309,11 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
         <div
           className={`px-4 py-3.5 border-b flex items-center justify-between shrink-0 ${
             surfaceTheme === 'midnight-glass'
-              ? 'bg-[#091f56]/80 border-sky-300/20'
+              ? 'bg-[#101728]/78 border-white/12'
+              : surfaceTheme === 'arctic-glass'
+              ? 'bg-white/68 border-white/80'
               : glassMode !== 'off'
-              ? 'bg-white/70 dark:bg-[#141621]/70 border-slate-200/80 dark:border-white/10'
+              ? 'bg-white/65 dark:bg-[#141724]/70 border-slate-200/80 dark:border-white/10'
               : 'bg-white dark:bg-[#141621] border-slate-200 dark:border-[#212332]'
           }`}
         >
@@ -714,8 +718,94 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
               </div>
 
               <div className="rounded-2xl bg-white dark:bg-[#151722] border border-slate-200 dark:border-[#232638] p-3 space-y-3 shadow-2xs">
-                {/* Surface Themes (Eye-friendly Light + Dark + Midnight Glass modes) */}
+                {/* 1-Tap Signature Glass Presets ("Sera Glass Looks") */}
                 <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-cyan-500" />
+                      Signature Glass Looks
+                    </span>
+                    {!isPro && (
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-[var(--app-accent)] flex items-center gap-0.5">
+                        <Lock className="w-2.5 h-2.5" /> PRO
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        {
+                          id: 'twilight-aurora',
+                          label: 'Twilight Aurora',
+                          surface: 'midnight-glass' as SurfaceThemeId,
+                          accent: '#0ea5e9',
+                          swatch: 'linear-gradient(135deg, #090d16 0%, #0ea5e9 55%, #ec4899 100%)',
+                        },
+                        {
+                          id: 'arctic-crystal',
+                          label: 'Arctic Crystal',
+                          surface: 'arctic-glass' as SurfaceThemeId,
+                          accent: '#2563eb',
+                          swatch: 'linear-gradient(135deg, #e0f2fe 0%, #60a5fa 55%, #818cf8 100%)',
+                        },
+                        {
+                          id: 'emerald-mist',
+                          label: 'Emerald Mist',
+                          surface: 'midnight-glass' as SurfaceThemeId,
+                          accent: '#10b981',
+                          swatch: 'linear-gradient(135deg, #090d16 0%, #10b981 55%, #22d3ee 100%)',
+                        },
+                        {
+                          id: 'rose-velvet',
+                          label: 'Rose Velvet',
+                          surface: 'midnight-glass' as SurfaceThemeId,
+                          accent: '#f43f5e',
+                          swatch: 'linear-gradient(135deg, #111827 0%, #f43f5e 55%, #a855f7 100%)',
+                        },
+                      ]
+                    ).map((preset) => {
+                      const activePreset =
+                        isPro &&
+                        surfaceTheme === preset.surface &&
+                        accentColor.toLowerCase() === preset.accent.toLowerCase() &&
+                        glassMode === 'strong' &&
+                        auroraRing;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            if (!isPro) {
+                              onClose();
+                              openUpgradeModal(`${preset.label} Glass Theme`);
+                              return;
+                            }
+                            setSurfaceTheme(preset.surface);
+                            setAccentColor(preset.accent);
+                            setGlassMode('strong');
+                            setAuroraRing(true);
+                          }}
+                          className={`flex items-center gap-2 px-2.5 py-2 rounded-xl border text-left transition-all cursor-pointer ${
+                            activePreset
+                              ? 'border-2 bg-slate-50 dark:bg-[#1c1f2e] font-bold text-slate-900 dark:text-white shadow-2xs'
+                              : 'border-slate-200 dark:border-[#25283a] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1a1d2b]'
+                          }`}
+                          style={activePreset ? { borderColor: preset.accent } : undefined}
+                        >
+                          <span
+                            className="w-4 h-4 rounded-full border border-white/40 shadow-2xs shrink-0"
+                            style={{ background: preset.swatch }}
+                          />
+                          <span className="text-[11px] truncate flex-1">{preset.label}</span>
+                          {!isPro && <Lock className="w-2.5 h-2.5 text-[var(--app-accent)] shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Surface Themes (Eye-friendly Light + Dark + Crystal Glass modes) */}
+                <div className="pt-2 border-t border-slate-100 dark:border-[#212434]">
                   <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block mb-1.5">
                     Surface Mode
                   </span>
@@ -737,6 +827,13 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
                           icon: <BookOpen className="w-3 h-3 text-amber-600" />,
                         },
                         {
+                          id: 'arctic-glass' as SurfaceThemeId,
+                          label: 'Arctic Frost Glass',
+                          swatch: 'linear-gradient(135deg, #dbeafe 0%, #f0f9ff 55%, #e0e7ff 100%)',
+                          proOnly: true,
+                          icon: <Sparkles className="w-3 h-3 text-sky-500" />,
+                        },
+                        {
                           id: 'dark' as SurfaceThemeId,
                           label: 'Midnight Dark',
                           swatch: '#0a0b10',
@@ -752,10 +849,9 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
                         },
                         {
                           id: 'midnight-glass' as SurfaceThemeId,
-                          label: 'Midnight Sapphire Glass',
-                          swatch: 'linear-gradient(135deg, #061844 0%, #0d2f7a 55%, #22d3ee 100%)',
+                          label: 'Crystal Twilight',
+                          swatch: 'linear-gradient(135deg, #090d16 0%, #162038 60%, #38bdf8 100%)',
                           proOnly: true,
-                          fullWidth: true,
                           icon: <Sparkles className="w-3 h-3 text-cyan-400" />,
                         },
                       ]
@@ -773,14 +869,11 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
                               return;
                             }
                             setSurfaceTheme(opt.id);
-                            if (opt.id === 'midnight-glass') {
+                            if (opt.id === 'midnight-glass' || opt.id === 'arctic-glass') {
                               if (glassMode === 'off') setGlassMode('strong');
-                              setAuroraRing(true);
                             }
                           }}
                           className={`flex items-center gap-2 px-2.5 py-2 rounded-xl border text-left transition-all cursor-pointer min-h-[40px] ${
-                            opt.fullWidth ? 'col-span-2' : ''
-                          } ${
                             active
                               ? 'border-2 bg-slate-50 dark:bg-[#1c1f2e] font-bold text-slate-900 dark:text-white shadow-2xs'
                               : isLocked
@@ -822,7 +915,7 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
                       {(
                         [
                           { id: 'off' as GlassEffectLevel, label: 'Flat' },
-                          { id: 'subtle' as GlassEffectLevel, label: 'Subtle' },
+                          { id: 'subtle' as GlassEffectLevel, label: 'Soft Glass' },
                           { id: 'strong' as GlassEffectLevel, label: 'Frosted' },
                         ]
                       ).map((g) => {
@@ -1100,9 +1193,10 @@ export const MobileSidebarDrawer: React.FC<MobileSidebarDrawerProps> = ({
                       >
                         <option value="soft-light">Soft Light</option>
                         <option value="warm-paper">Warm Paper</option>
+                        <option value="arctic-glass">Arctic Frost Glass</option>
                         <option value="dark">Midnight Dark</option>
                         <option value="amoled">AMOLED Black</option>
-                        <option value="midnight-glass">Midnight Glass</option>
+                        <option value="midnight-glass">Crystal Twilight Glass</option>
                       </select>
 
                       <button

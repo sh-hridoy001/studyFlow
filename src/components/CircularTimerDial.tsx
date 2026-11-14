@@ -484,14 +484,18 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
 
   return (
     <div className="relative w-full bg-white dark:bg-[#13141d] border border-slate-200 dark:border-[#222434] rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col items-center text-slate-900 dark:text-white overflow-hidden transition-all">
-      {/* Ambient background glow matching active timer */}
+      {/* Ambient background glow matching active timer or Aurora spectrum */}
       <div
-        className="absolute -top-24 -left-24 w-52 h-52 rounded-full blur-3xl opacity-15 pointer-events-none transition-all duration-700"
-        style={{ backgroundColor: isTimerActive ? themeRed : activeFolder.color }}
+        className={`absolute -top-24 -left-24 w-56 h-56 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
+          auroraRing ? 'opacity-30' : 'opacity-15'
+        }`}
+        style={{ backgroundColor: auroraRing ? '#22d3ee' : isTimerActive ? themeRed : activeFolder.color }}
       />
       <div
-        className="absolute -bottom-24 -right-24 w-52 h-52 rounded-full blur-3xl opacity-10 pointer-events-none"
-        style={{ backgroundColor: activeFolder.color }}
+        className={`absolute -bottom-24 -right-24 w-56 h-56 rounded-full blur-3xl pointer-events-none transition-all duration-700 ${
+          auroraRing ? 'opacity-28' : 'opacity-10'
+        }`}
+        style={{ backgroundColor: auroraRing ? '#ec4899' : activeFolder.color }}
       />
 
       {isSubjectPickerOpen ? (
@@ -917,46 +921,93 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
           )}
 
           {/* Circular Progress Ring & Dial */}
-          <div className="relative my-1 flex items-center justify-center">
-            {(auroraRing || surfaceTheme === 'midnight-glass' || glassMode !== 'off') && (
+          <div className="relative my-1.5 flex items-center justify-center">
+            {auroraRing ? (
+              <>
+                {/* Outer Aurora Soft Radial Aura */}
+                <div
+                  className={`pointer-events-none absolute -inset-2 rounded-full blur-2xl transition-opacity duration-500 ${
+                    isTimerActive ? 'opacity-85 animate-pulse' : 'opacity-65'
+                  }`}
+                  style={{
+                    background: `conic-gradient(from 35deg, rgba(34,211,238,0.55), rgba(99,102,241,0.55), rgba(236,72,153,0.55), ${themeRed}88, rgba(34,211,238,0.55))`,
+                  }}
+                />
+                {/* Crisp Aurora Halo Masked Around Ring Perimeter */}
+                <div
+                  className={`pointer-events-none absolute inset-[2px] rounded-full blur-[6px] opacity-80 ${
+                    isTimerActive ? 'animate-[spin_10s_linear_infinite]' : ''
+                  }`}
+                  style={{
+                    background: `conic-gradient(from 0deg, #00f5ff, #38bdf8, #818cf8, #e879f9, ${themeRed}, #00f5ff)`,
+                    WebkitMaskImage:
+                      'radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 11px), #000 calc(100% - 1px), transparent 100%)',
+                    maskImage:
+                      'radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 11px), #000 calc(100% - 1px), transparent 100%)',
+                  }}
+                />
+              </>
+            ) : (surfaceTheme === 'midnight-glass' || surfaceTheme === 'arctic-glass' || glassMode !== 'off') ? (
               <div
-                className="pointer-events-none absolute inset-3 rounded-full blur-xl opacity-45 transition-opacity duration-500"
+                className="pointer-events-none absolute inset-3 rounded-full blur-xl opacity-40 transition-opacity duration-500"
                 style={{
-                  background: auroraRing
-                    ? `conic-gradient(from 40deg, #22d3ee33, #818cf833, #ec489933, ${themeRed}44, #22d3ee33)`
-                    : `radial-gradient(circle, ${themeRed}28 0%, transparent 70%)`,
+                  background: `radial-gradient(circle, ${themeRed}30 0%, transparent 70%)`,
                 }}
               />
-            )}
-            <svg width={size} height={size} className="transform -rotate-90 relative z-10">
+            ) : null}
+
+            <svg width={size} height={size} className="transform -rotate-90 relative z-10 overflow-visible">
               <defs>
                 <linearGradient id="auroraTimerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#22d3ee" />
-                  <stop offset="38%" stopColor="#6366f1" />
-                  <stop offset="72%" stopColor="#ec4899" />
+                  <stop offset="0%" stopColor="#00f5ff" />
+                  <stop offset="32%" stopColor="#38bdf8" />
+                  <stop offset="58%" stopColor="#818cf8" />
+                  <stop offset="82%" stopColor="#ec4899" />
                   <stop offset="100%" stopColor={themeRed} />
                 </linearGradient>
               </defs>
+
+              {/* Base Track Ring (Always shows soft Aurora Spectrum when Aurora Glow is ON) */}
               <circle
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                className="stroke-slate-200 dark:stroke-[#1a1c27]"
-                strokeOpacity={surfaceTheme === 'midnight-glass' || glassMode !== 'off' ? 0.5 : 1}
+                className={auroraRing ? '' : 'stroke-slate-200 dark:stroke-[#1a1c27]'}
+                stroke={
+                  auroraRing && mode !== 'shortBreak' && mode !== 'longBreak'
+                    ? 'url(#auroraTimerGrad)'
+                    : undefined
+                }
+                strokeOpacity={
+                  auroraRing && mode !== 'shortBreak' && mode !== 'longBreak'
+                    ? isTimerActive
+                      ? 0.36
+                      : 0.65
+                    : surfaceTheme === 'midnight-glass' || surfaceTheme === 'arctic-glass' || glassMode !== 'off'
+                    ? 0.45
+                    : 1
+                }
                 strokeWidth={strokeWidth}
                 fill="transparent"
+                style={
+                  auroraRing && mode !== 'shortBreak' && mode !== 'longBreak'
+                    ? { filter: 'drop-shadow(0 0 6px rgba(56,189,248,0.45))' }
+                    : undefined
+                }
               />
 
+              {/* Subtle Inner Tick Track */}
               <circle
                 cx={size / 2}
                 cy={size / 2}
-                r={radius - 11}
-                className="stroke-slate-300/70 dark:stroke-[#242637]"
+                r={radius - 12}
+                className="stroke-slate-300/70 dark:stroke-white/15"
                 strokeWidth={1}
                 strokeDasharray="2 8"
                 fill="transparent"
               />
 
+              {/* Active Progress Arc */}
               <circle
                 cx={size / 2}
                 cy={size / 2}
@@ -968,7 +1019,7 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                     ? 'url(#auroraTimerGrad)'
                     : themeRed
                 }
-                strokeWidth={strokeWidth}
+                strokeWidth={auroraRing ? strokeWidth + 1.5 : strokeWidth}
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
@@ -976,12 +1027,25 @@ export const CircularTimerDial: React.FC<CircularTimerDialProps> = ({ onOpenAddT
                 className="transition-all duration-500 ease-out"
                 style={{
                   filter: auroraRing
-                    ? `drop-shadow(0 0 8px rgba(34,211,238,0.45)) drop-shadow(0 0 14px ${themeRed}66)`
+                    ? `drop-shadow(0 0 8px rgba(0,245,255,0.7)) drop-shadow(0 0 16px rgba(236,72,153,0.55))`
                     : isTimerActive
                     ? `drop-shadow(0 0 8px ${themeRed}70)`
                     : 'none',
                 }}
               />
+
+              {/* Glowing Progress Head Indicator Dot in Aurora Mode */}
+              {auroraRing && progressFraction > 0.005 && (
+                <circle
+                  cx={size / 2 + radius * Math.cos(progressFraction * 2 * Math.PI)}
+                  cy={size / 2 + radius * Math.sin(progressFraction * 2 * Math.PI)}
+                  r={5}
+                  fill="#ffffff"
+                  style={{
+                    filter: 'drop-shadow(0 0 6px #00f5ff) drop-shadow(0 0 10px #ec4899)',
+                  }}
+                />
+              )}
             </svg>
 
             {/* Center Digital Clock */}

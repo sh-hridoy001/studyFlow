@@ -249,38 +249,38 @@ function AppContent() {
 
   return (
     <div className="min-h-screen relative bg-transparent text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-[var(--app-accent)] selection:text-white w-full overflow-x-clip font-sans">
-      {/* Soft Ambient Frosted Backdrop Shapes (Visible in Midnight Glass or Glassy UI Modes) */}
-      {(surfaceTheme === 'midnight-glass' || glassMode !== 'off') && (
+      {/* Soft Ambient Frosted Backdrop Shapes (Visible in Twilight Glass, Arctic Glass, or Glassy UI Modes) */}
+      {(surfaceTheme === 'midnight-glass' || surfaceTheme === 'arctic-glass' || glassMode !== 'off') && (
         <div className="pointer-events-none fixed inset-0 overflow-hidden z-0" aria-hidden="true">
           <div
-            className="absolute -top-20 -left-16 w-72 h-72 rounded-[3.5rem] rotate-12 blur-2xl opacity-45 dark:opacity-55 transition-colors duration-500"
+            className="absolute -top-24 -left-16 w-80 h-80 rounded-full blur-3xl opacity-55 dark:opacity-50 transition-all duration-700"
             style={{
               background:
-                surfaceTheme === 'midnight-glass'
-                  ? 'radial-gradient(circle at 30% 30%, rgba(34,211,238,0.28), rgba(37,99,235,0.12))'
-                  : 'var(--app-accent-soft)',
+                surfaceTheme === 'arctic-glass'
+                  ? 'radial-gradient(circle at 35% 35%, rgba(56,189,248,0.48), rgba(129,140,248,0.22), transparent 72%)'
+                  : 'radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--app-accent) 55%, transparent), rgba(56,189,248,0.22), transparent 72%)',
             }}
           />
           <div
-            className="absolute top-1/4 -right-20 w-80 h-80 rounded-[4rem] -rotate-12 blur-3xl opacity-35 dark:opacity-50 transition-colors duration-500"
+            className="absolute top-1/4 -right-20 w-88 h-88 rounded-full blur-3xl opacity-45 dark:opacity-45 transition-all duration-700"
             style={{
               background:
-                surfaceTheme === 'midnight-glass'
-                  ? 'radial-gradient(circle at 40% 40%, rgba(99,102,241,0.26), rgba(14,165,233,0.08))'
-                  : 'var(--app-accent-soft)',
+                surfaceTheme === 'arctic-glass'
+                  ? 'radial-gradient(circle at 45% 45%, rgba(167,139,250,0.42), color-mix(in srgb, var(--app-accent) 26%, transparent), transparent 72%)'
+                  : 'radial-gradient(circle at 45% 45%, rgba(34,211,238,0.34), rgba(99,102,241,0.2), transparent 72%)',
             }}
           />
           <div
-            className="absolute bottom-24 left-1/4 w-64 h-64 rounded-[3rem] rotate-45 blur-2xl opacity-30 dark:opacity-40 transition-colors duration-500"
+            className="absolute bottom-20 left-1/5 w-72 h-72 rounded-full blur-3xl opacity-40 dark:opacity-35 transition-all duration-700"
             style={{
               background:
-                surfaceTheme === 'midnight-glass'
-                  ? 'radial-gradient(circle at 50% 50%, rgba(56,189,248,0.22), transparent 70%)'
-                  : 'var(--app-accent-soft)',
+                surfaceTheme === 'arctic-glass'
+                  ? 'radial-gradient(circle at 50% 50%, rgba(45,212,191,0.32), transparent 70%)'
+                  : 'radial-gradient(circle at 50% 50%, rgba(129,140,248,0.28), transparent 70%)',
             }}
           />
           <div
-            className="hidden sm:block absolute bottom-10 right-1/5 w-52 h-52 rounded-[2.5rem] -rotate-6 blur-2xl opacity-25 dark:opacity-35 transition-colors duration-500"
+            className="hidden sm:block absolute bottom-12 right-1/4 w-60 h-60 rounded-full blur-3xl opacity-35 dark:opacity-35 transition-all duration-700"
             style={{ background: 'var(--app-accent-soft)' }}
           />
         </div>

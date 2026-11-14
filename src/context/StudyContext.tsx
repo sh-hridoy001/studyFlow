@@ -279,6 +279,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (
       savedSurface === 'soft-light' ||
       savedSurface === 'warm-paper' ||
+      savedSurface === 'arctic-glass' ||
       savedSurface === 'dark' ||
       savedSurface === 'amoled' ||
       savedSurface === 'midnight-glass'
@@ -318,7 +319,7 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Free Tier (after 30-day trial) uses standard Soft Light / Midnight Dark with default #ff4757 accent & flat cards
   const effectiveSurfaceTheme: SurfaceThemeId = isPro
     ? surfaceTheme
-    : surfaceTheme === 'warm-paper'
+    : surfaceTheme === 'warm-paper' || surfaceTheme === 'arctic-glass'
     ? 'soft-light'
     : surfaceTheme === 'amoled' || surfaceTheme === 'midnight-glass'
     ? 'dark'
@@ -354,9 +355,10 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const bgMap: Record<SurfaceThemeId, string> = {
         'soft-light': '#e7ecf4',
         'warm-paper': '#ebe5d5',
+        'arctic-glass': '#dce8fa',
         dark: '#0a0b10',
         amoled: '#000000',
-        'midnight-glass': '#041336',
+        'midnight-glass': '#090d16',
       };
       metaTheme.setAttribute('content', bgMap[effectiveSurfaceTheme]);
     }
